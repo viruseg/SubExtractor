@@ -4,7 +4,15 @@ public sealed class HttpFfmpegDownloader : IFfmpegDownloader
 {
     private const int BufferSize = 81920;
 
-    private readonly HttpClient _httpClient = new();
+    private readonly HttpClient _httpClient;
+
+    public HttpFfmpegDownloader()
+        : this(new HttpClient { Timeout = System.Threading.Timeout.InfiniteTimeSpan })
+    {
+    }
+
+    public HttpFfmpegDownloader(HttpClient httpClient)
+        => _httpClient = httpClient;
 
     public async Task DownloadAsync(
         Uri uri,

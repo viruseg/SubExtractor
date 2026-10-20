@@ -15,9 +15,9 @@ public sealed class FfmpegManager
     private static readonly Uri ReleaseVersionUri =
         new("https://www.gyan.dev/ffmpeg/builds/release-version");
     private static readonly Uri ArchiveUri =
-        new("https://www.gyan.dev/ffmpeg/builds/release-essentials.zip");
+        new("https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip");
     private static readonly Uri ChecksumUri =
-        new("https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip.sha256");
+        new(ArchiveUri.AbsoluteUri + ".sha256");
 
     private readonly string _dataDirectory;
     private readonly string _ffmpegDirectory;
@@ -108,16 +108,7 @@ public sealed class FfmpegManager
             progress?.Report(new FfmpegInstallProgress(InstallingStage, null));
             Directory.CreateDirectory(_ffmpegDirectory);
 
-            var pendingFfmpeg = Path.Combine(_ffmpegDirectory, $"ffmpeg-{Guid.NewGuid():N}.tmp");
-            var pendingFfprobe = Path.Combine(_ffmpegDirectory, $"ffprobe-{Guid.NewGuid():N}.tmp");
-            pendingTargets.Add(pendingFfmpeg);
-            pendingTargets.Add(pendingFfprobe);
-
-            File.Move(stagedFfmpeg, pendingFfmpeg);
-            File.Move(stagedFfprobe, pendingFfprobe);
-            File.Move(pendingFfmpeg, FfmpegPath, overwrite: true);
-            File.Move(pendingFfprobe, FfprobePath, overwrite: true);
-            pendingTargets.Clear();
+            ReplaceExecutables(stagedFfmpeg, stagedFfprobe, pendingTargets);
 
             progress?.Report(new FfmpegInstallProgress(DoneStage, null));
         }
@@ -145,6 +136,90 @@ public sealed class FfmpegManager
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return null;
+        }
+    }
+
+    private void ReplaceExecutables(
+        string stagedFfmpeg,
+        string stagedFfprobe,
+        List<string> pendingTargets)
+    {
+        var pendingFfmpeg = Path.Combine(_ffmpegDirectory, $"ffmpeg-{Guid.NewGuid():N}.tmp");
+        var pendingFfprobe = Path.Combine(_ffmpegDirectory, $"ffprobe-{Guid.NewGuid():N}.tmp");
+        var backupFfmpeg = Path.Combine(_ffmpegDirectory, $"ffmpeg-{Guid.NewGuid():N}.bak");
+        var backupFfprobe = Path.Combine(_ffmpegDirectory, $"ffprobe-{Guid.NewGuid():N}.bak");
+
+        pendingTargets.Add(pendingFfmpeg);
+        pendingTargets.Add(pendingFfprobe);
+
+        File.Move(stagedFfmpeg, pendingFfmpeg);
+        File.Move(stagedFfprobe, pendingFfprobe);
+
+        var ffmpegBackedUp = false;
+        var ffprobeBackedUp = false;
+        var ffmpegInstalled = false;
+        var ffprobeInstalled = false;
+
+        try
+        {
+            if (File.Exists(FfmpegPath))
+            {
+                File.Move(FfmpegPath, backupFfmpeg);
+                ffmpegBackedUp = true;
+            }
+
+            if (File.Exists(FfprobePath))
+            {
+                File.Move(FfprobePath, backupFfprobe);
+                ffprobeBackedUp = true;
+            }
+
+            File.Move(pendingFfmpeg, FfmpegPath);
+            ffmpegInstalled = true;
+            File.Move(pendingFfprobe, FfprobePath);
+            ffprobeInstalled = true;
+        }
+        catch
+        {
+            if (ffmpegInstalled)
+            {
+                TryDeleteFile(FfmpegPath);
+            }
+
+            if (ffprobeInstalled)
+            {
+                TryDeleteFile(FfprobePath);
+            }
+
+            if (ffmpegBackedUp)
+            {
+                TryRestoreFile(backupFfmpeg, FfmpegPath);
+            }
+
+            if (ffprobeBackedUp)
+            {
+                TryRestoreFile(backupFfprobe, FfprobePath);
+            }
+
+            throw;
+        }
+
+        TryDeleteFile(backupFfmpeg);
+        TryDeleteFile(backupFfprobe);
+        pendingTargets.Clear();
+    }
+
+    private static void TryRestoreFile(string backupPath, string targetPath)
+    {
+        try
+        {
+            if (File.Exists(backupPath))
+            {
+                File.Move(backupPath, targetPath, overwrite: true);
+            }
+        }
+        catch
+        {
         }
     }
 

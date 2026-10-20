@@ -49,6 +49,25 @@ public sealed class FfmpegManagerTests
     }
 
     [Fact]
+    public async Task Install_uses_the_live_archive_and_sidecar_uris()
+    {
+        using var temp = new TempDirectory();
+        var archive = CreateArchive();
+        var downloader = new RecordingDownloader(archive, Sha256(archive));
+        var manager = new FfmpegManager(Path.Combine(temp.Path, "Data"), downloader,
+            new FakeProcessRunner(new ProcessResult(0, "", "")));
+
+        await manager.InstallAsync(null, CancellationToken.None);
+
+        Assert.Equal(
+            [
+                new Uri("https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"),
+                new Uri("https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip.sha256"),
+            ],
+            downloader.RequestedUris);
+    }
+
+    [Fact]
     public async Task Install_replaces_existing_executables()
     {
         using var temp = new TempDirectory();
@@ -66,6 +85,38 @@ public sealed class FfmpegManagerTests
         Assert.Equal("FFMPEG", File.ReadAllText(manager.FfmpegPath));
         Assert.Equal("FFPROBE", File.ReadAllText(manager.FfprobePath));
         Assert.Single(Directory.GetFileSystemEntries(data));
+    }
+
+    [Fact]
+    public async Task Install_restores_existing_files_when_replacement_fails()
+    {
+        using var temp = new TempDirectory();
+        var data = Path.Combine(temp.Path, "Data");
+        var ffmpegDir = Path.Combine(data, "ffmpeg");
+        Directory.CreateDirectory(ffmpegDir);
+        var ffmpegPath = Path.Combine(ffmpegDir, "ffmpeg.exe");
+        var ffprobePath = Path.Combine(ffmpegDir, "ffprobe.exe");
+        File.WriteAllText(ffmpegPath, "OLD-FFMPEG");
+        File.WriteAllText(ffprobePath, "OLD-FFPROBE");
+        var archive = CreateArchive();
+        var manager = new FfmpegManager(data, new FakeDownloader(archive, Sha256(archive)),
+            new FakeProcessRunner(new ProcessResult(0, "", "")));
+
+        using (new FileStream(ffprobePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            var exception = await Record.ExceptionAsync(
+                () => manager.InstallAsync(null, CancellationToken.None));
+            Assert.True(
+                exception is IOException or UnauthorizedAccessException,
+                $"Expected an I/O failure, but got {exception}.");
+        }
+
+        Assert.Equal("OLD-FFMPEG", File.ReadAllText(ffmpegPath));
+        Assert.Equal("OLD-FFPROBE", File.ReadAllText(ffprobePath));
+        Assert.Equal(2, Directory.GetFiles(ffmpegDir).Length);
+        Assert.Single(Directory.GetFileSystemEntries(data));
+        Assert.Empty(Directory.GetFiles(data, "*.tmp", SearchOption.AllDirectories));
+        Assert.Empty(Directory.GetFiles(data, "*.bak", SearchOption.AllDirectories));
     }
 
     [Fact]
@@ -241,6 +292,25 @@ public sealed class FfmpegManagerTests
 
         public Task<string> GetStringAsync(Uri uri, CancellationToken ct)
             => Task.FromResult(uri.AbsolutePath.EndsWith(".sha256") ? checksum : "9.0.2");
+    }
+
+    private sealed class RecordingDownloader(byte[] archive, string checksum) : IFfmpegDownloader
+    {
+        public List<Uri> RequestedUris { get; } = [];
+
+        public Task DownloadAsync(Uri uri, Stream destination, IProgress<DownloadProgress>? progress, CancellationToken ct)
+        {
+            RequestedUris.Add(uri);
+            destination.Write(archive);
+            progress?.Report(new DownloadProgress(archive.Length, archive.Length));
+            return Task.CompletedTask;
+        }
+
+        public Task<string> GetStringAsync(Uri uri, CancellationToken ct)
+        {
+            RequestedUris.Add(uri);
+            return Task.FromResult(uri.AbsolutePath.EndsWith(".sha256") ? checksum : "9.0.2");
+        }
     }
 
     private sealed class ThrowingDownloader : IFfmpegDownloader
