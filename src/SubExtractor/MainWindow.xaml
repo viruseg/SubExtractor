@@ -2,6 +2,7 @@
     x:Class="SubExtractor.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:viewModels="using:SubExtractor.ViewModels"
     Title="SubExtractor">
     <Window.SystemBackdrop>
         <MicaBackdrop />
@@ -34,7 +35,198 @@
                         IsTabStop="False"
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch">
-            <Grid x:Name="ContentRoot" />
+            <Grid x:Name="ContentRoot"
+                  Padding="24,16,24,20"
+                  RowSpacing="16"
+                  Background="{ThemeResource LayerFillColorDefaultBrush}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Border x:Name="FolderBorder"
+                        Grid.Row="0"
+                        Padding="4"
+                        Background="{ThemeResource ControlFillColorDefaultBrush}"
+                        BorderBrush="Transparent"
+                        BorderThickness="2"
+                        CornerRadius="8">
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBox x:Name="FolderBox"
+                                 AutomationProperties.Name="Folder"
+                                 PlaceholderText="Folder with video files"
+                                 KeyDown="FolderBox_KeyDown"
+                                 LostFocus="FolderBox_LostFocus"
+                                 Paste="FolderBox_Paste" />
+                        <Button x:Name="BrowseButton"
+                                Grid.Column="1"
+                                Content="Browse..."
+                                Click="BrowseButton_Click" />
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Row="1">
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <ScrollViewer x:Name="HeaderScrollViewer"
+                                              HorizontalScrollBarVisibility="Hidden"
+                                              VerticalScrollBarVisibility="Disabled"
+                                              HorizontalScrollMode="Enabled"
+                                              VerticalScrollMode="Disabled"
+                                              IsTabStop="False">
+                                    <ItemsRepeater ItemsSource="{x:Bind ViewModel.Columns, Mode=OneWay}"
+                                                   HorizontalAlignment="Left">
+                                        <ItemsRepeater.Layout>
+                                            <StackLayout Orientation="Horizontal" />
+                                        </ItemsRepeater.Layout>
+                                        <ItemsRepeater.ItemTemplate>
+                                            <DataTemplate x:DataType="viewModels:TableColumnViewModel">
+                                                <Grid Width="{x:Bind Width}"
+                                                      MinHeight="40"
+                                                      Padding="12,8"
+                                                      ColumnSpacing="8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <CheckBox Grid.Column="0"
+                                                              MinWidth="0"
+                                                              Padding="0"
+                                                              VerticalAlignment="Center"
+                                                              IsThreeState="True"
+                                                              IsChecked="{x:Bind SelectionState, Mode=OneWay}"
+                                                              IsEnabled="{x:Bind IsSelectable, Mode=OneWay}"
+                                                              Visibility="{x:Bind CheckBoxVisibility}"
+                                                              AutomationProperties.Name="Select column"
+                                                              Tag="{x:Bind}"
+                                                              Click="ColumnHeaderCheckBox_Click" />
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{x:Bind HeaderLabel}"
+                                                               Visibility="{x:Bind LabelVisibility}"
+                                                               ToolTipService.ToolTip="{x:Bind HeaderLabel}"
+                                                               VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsRepeater.ItemTemplate>
+                                    </ItemsRepeater>
+                                </ScrollViewer>
+                            </Border>
+
+                            <ScrollViewer x:Name="BodyScrollViewer"
+                                          Grid.Row="1"
+                                          HorizontalScrollBarVisibility="Auto"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollMode="Enabled"
+                                          VerticalScrollMode="Enabled"
+                                          ViewChanged="BodyScrollViewer_ViewChanged">
+                                <ItemsRepeater ItemsSource="{x:Bind ViewModel.Rows, Mode=OneWay}"
+                                               HorizontalAlignment="Left"
+                                               VerticalAlignment="Top">
+                                    <ItemsRepeater.Layout>
+                                        <StackLayout Orientation="Vertical" />
+                                    </ItemsRepeater.Layout>
+                                    <ItemsRepeater.ItemTemplate>
+                                        <DataTemplate x:DataType="viewModels:TableRowViewModel">
+                                            <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                                    BorderThickness="0,0,0,1">
+                                                <ItemsRepeater ItemsSource="{x:Bind Cells}">
+                                                    <ItemsRepeater.Layout>
+                                                        <StackLayout Orientation="Horizontal" />
+                                                    </ItemsRepeater.Layout>
+                                                    <ItemsRepeater.ItemTemplate>
+                                                        <DataTemplate x:DataType="viewModels:TableCellViewModel">
+                                                            <Grid Width="{x:Bind Width}"
+                                                                  MinHeight="44"
+                                                                  Padding="12,6"
+                                                                  ColumnSpacing="8">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <Grid.RowDefinitions>
+                                                                    <RowDefinition Height="Auto" />
+                                                                    <RowDefinition Height="Auto" />
+                                                                </Grid.RowDefinitions>
+
+                                                                <CheckBox Grid.Column="0"
+                                                                          Grid.Row="0"
+                                                                          Grid.RowSpan="2"
+                                                                          MinWidth="0"
+                                                                          Padding="0"
+                                                                          VerticalAlignment="Center"
+                                                                          IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
+                                                                          Visibility="{x:Bind CheckBoxVisibility}" />
+                                                                <TextBlock Grid.Column="1"
+                                                                           Grid.Row="0"
+                                                                           Text="{x:Bind FileName}"
+                                                                           Visibility="{x:Bind FileNameVisibility}"
+                                                                           VerticalAlignment="Center"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Grid.Column="1"
+                                                                           Grid.Row="1"
+                                                                           Text="{x:Bind StatusText}"
+                                                                           Visibility="{x:Bind StatusVisibility}"
+                                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                           FontSize="12"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsRepeater.ItemTemplate>
+                                                </ItemsRepeater>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsRepeater.ItemTemplate>
+                                </ItemsRepeater>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Text="{x:Bind ViewModel.EmptyStateText, Mode=OneWay}"
+                               Visibility="{x:Bind ViewModel.EmptyStateVisibility, Mode=OneWay}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Margin="24" />
+                </Grid>
+
+                <Grid Grid.Row="2" ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                               VerticalAlignment="Center"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextTrimming="CharacterEllipsis" />
+                    <Button x:Name="ExtractAllButton"
+                            Grid.Column="1"
+                            Content="Extract All"
+                            Style="{StaticResource AccentButtonStyle}"
+                            IsEnabled="{x:Bind ViewModel.CanExtract, Mode=OneWay}" />
+                </Grid>
+            </Grid>
         </ContentControl>
     </Grid>
 </Window>
