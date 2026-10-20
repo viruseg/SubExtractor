@@ -224,7 +224,8 @@
                             Grid.Column="1"
                             Content="Extract All"
                             Style="{StaticResource AccentButtonStyle}"
-                            IsEnabled="{x:Bind ViewModel.CanExtract, Mode=OneWay}" />
+                            IsEnabled="{x:Bind ViewModel.CanExtract, Mode=OneWay}"
+                            Click="ExtractAll_Click" />
                 </Grid>
             </Grid>
         </ContentControl>

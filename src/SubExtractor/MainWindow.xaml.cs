@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using SubExtractor.Core.Extraction;
 using SubExtractor.Core.Formatting;
 using SubExtractor.Core.Models;
 using SubExtractor.Services;
@@ -23,6 +24,7 @@ public sealed partial class MainWindow : Window
     private bool _startupStarted;
     private bool _suppressFolderCommit;
     private bool _isCommittingFolder;
+    private bool _isExtracting;
     private string? _currentFolder;
 
     public MainWindow(AppServices services)
@@ -246,6 +248,134 @@ public sealed partial class MainWindow : Window
         await sink.FlushAsync();
         progress.Finish($"Scan finished: {result.Videos.Count} files, {trackCount} subtitle tracks");
         await progress.WaitForCloseAsync();
+    }
+
+    private async void ExtractAll_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isExtracting || _services.Busy.IsBusy || _services.Operations.IsRunning)
+        {
+            return;
+        }
+
+        var tracks = ViewModel.SelectedTracks;
+        if (tracks.Count == 0 || _currentFolder is not { Length: > 0 } folder)
+        {
+            return;
+        }
+
+        _isExtracting = true;
+        ProgressWindow? progress = null;
+        try
+        {
+            var plans = OutputPlanner.Plan(folder, tracks, File.Exists);
+            if (plans.Any(plan => plan.OverwritesExisting) &&
+                !await ConfirmOverwriteAsync(plans))
+            {
+                return;
+            }
+
+            using var busy = _services.Busy.Begin();
+
+            progress = new ProgressWindow("Extracting", this);
+            progress.Activate();
+            await progress.WaitForLoadedAsync();
+            progress.AddLog("Extraction started");
+            progress.SetOverall(0);
+
+            var sink = new ExtractionProgressSink(progress, DispatcherQueue);
+
+            ExtractionSummary summary;
+            try
+            {
+                using (var operation = _services.Operations.Begin())
+                using (var cts = CancellationTokenSource.CreateLinkedTokenSource(operation.Token))
+                {
+                    EventHandler cancelHandler = (_, _) => cts.Cancel();
+                    progress.CancelRequested += cancelHandler;
+                    try
+                    {
+                        summary = await _services.Extractor.ExtractAsync(plans, sink, cts.Token);
+                    }
+                    finally
+                    {
+                        // WHY: the CTS is disposed at scope exit; a late Cancel must not reach it.
+                        progress.CancelRequested -= cancelHandler;
+                        progress.DisableCancel();
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                progress.AllowClose();
+                progress.Close();
+                ViewModel.StatusText = "Extraction cancelled.";
+                return;
+            }
+            catch (Exception ex)
+            {
+                await sink.FlushAsync();
+                progress.AddLog($"Extraction failed: {ex.Message}", isError: true);
+                progress.Finish("Extraction failed.");
+                ViewModel.StatusText = "Extraction failed.";
+                await progress.WaitForCloseAsync();
+                return;
+            }
+
+            await sink.FlushAsync();
+            var result = $"Extraction finished: {summary.Succeeded} succeeded, {summary.Failed} failed.";
+            ViewModel.StatusText = result;
+            progress.Finish(result);
+            await progress.WaitForCloseAsync();
+        }
+        catch (Exception ex)
+        {
+            if (progress is not null)
+            {
+                progress.AllowClose();
+                progress.Close();
+            }
+
+            ViewModel.StatusText = $"Extraction failed: {ex.Message}";
+        }
+        finally
+        {
+            _isExtracting = false;
+        }
+    }
+
+    private async Task<bool> ConfirmOverwriteAsync(IReadOnlyList<OutputPlan> plans)
+    {
+        if (ContentRoot.XamlRoot is not { } xamlRoot)
+        {
+            return false;
+        }
+
+        var content = new StackPanel { Spacing = 6 };
+        content.Children.Add(new TextBlock
+        {
+            Text = "The following subtitle files already exist and will be overwritten:",
+            TextWrapping = TextWrapping.Wrap,
+        });
+
+        foreach (var line in OverwritePrompt.BuildLines(plans))
+        {
+            content.Children.Add(new TextBlock
+            {
+                Text = line,
+                TextWrapping = TextWrapping.Wrap,
+            });
+        }
+
+        var dialog = new ContentDialog
+        {
+            XamlRoot = xamlRoot,
+            Title = "Overwrite subtitles?",
+            Content = content,
+            PrimaryButtonText = "Overwrite",
+            CloseButtonText = "Cancel",
+        };
+
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
     private void ClearResults(string emptyStateText)
