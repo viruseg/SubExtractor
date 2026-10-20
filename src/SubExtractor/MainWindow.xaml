@@ -29,6 +29,12 @@
             </TitleBar.RightHeader>
         </TitleBar>
 
-        <Grid x:Name="ContentRoot" Grid.Row="1" />
+        <ContentControl x:Name="ContentHost"
+                        Grid.Row="1"
+                        IsTabStop="False"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch">
+            <Grid x:Name="ContentRoot" />
+        </ContentControl>
     </Grid>
 </Window>
