@@ -69,7 +69,16 @@ public sealed partial class ProgressWindow : Window
     {
         AddLog(summary);
         CancelButton.Content = "Close";
+        CancelButton.IsEnabled = true;
         _finished = true;
+    }
+
+    public void DisableCancel()
+    {
+        if (!_finished)
+        {
+            CancelButton.IsEnabled = false;
+        }
     }
 
     public void AllowClose() => _finished = true;

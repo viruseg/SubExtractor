@@ -201,8 +201,18 @@ public sealed partial class MainWindow : Window
             using (var operation = _services.Operations.Begin())
             using (var cts = CancellationTokenSource.CreateLinkedTokenSource(operation.Token))
             {
-                progress.CancelRequested += (_, _) => cts.Cancel();
-                result = await _services.Scanner.ScanAsync(folder, sink, cts.Token);
+                EventHandler cancelHandler = (_, _) => cts.Cancel();
+                progress.CancelRequested += cancelHandler;
+                try
+                {
+                    result = await _services.Scanner.ScanAsync(folder, sink, cts.Token);
+                }
+                finally
+                {
+                    // WHY: the CTS is disposed at scope exit; a late Cancel must not reach it.
+                    progress.CancelRequested -= cancelHandler;
+                    progress.DisableCancel();
+                }
             }
         }
         catch (OperationCanceledException)
