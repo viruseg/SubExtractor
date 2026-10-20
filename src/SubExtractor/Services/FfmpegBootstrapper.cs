@@ -57,7 +57,7 @@ public sealed class FfmpegBootstrapper
                 {
                     await _manager.InstallAsync(progress, cancellation.Token);
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
                 {
                     progressWindow.AllowClose();
                     progressWindow.Close();
@@ -72,8 +72,11 @@ public sealed class FfmpegBootstrapper
                 }
                 catch (Exception ex)
                 {
-                    progressWindow.AddLog(ex.Message, isError: true);
-                    var choice = await ShowRetryDialogAsync(progressWindow, ex.Message);
+                    var message = ex is OperationCanceledException
+                        ? "The download timed out. Check your connection and try again."
+                        : ex.Message;
+                    progressWindow.AddLog(message, isError: true);
+                    var choice = await ShowRetryDialogAsync(progressWindow, message);
                     progressWindow.AllowClose();
                     progressWindow.Close();
 
