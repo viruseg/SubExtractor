@@ -56,8 +56,9 @@ public sealed class ProcessRunner : IProcessRunner
         {
             process.Kill(entireProcessTree: true);
         }
-        catch (InvalidOperationException)
+        catch (Exception)
         {
+            // NOTE: Best-effort kill; cancellation must still surface as OperationCanceledException.
         }
     }
 }
