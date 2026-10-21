@@ -196,7 +196,7 @@ public sealed partial class MainWindow : Window
 
     private async Task StartScanAsync(string folder)
     {
-        if (_services.Busy.IsBusy || _services.Operations.IsRunning)
+        if (_isExtracting || _services.Busy.IsBusy || _services.Operations.IsRunning)
         {
             return;
         }
@@ -283,14 +283,14 @@ public sealed partial class MainWindow : Window
         ProgressWindow? progress = null;
         try
         {
+            using var busy = _services.Busy.Begin();
+
             var plans = OutputPlanner.Plan(folder, tracks, File.Exists);
             if (plans.Any(plan => plan.OverwritesExisting) &&
                 !await ConfirmOverwriteAsync(plans))
             {
                 return;
             }
-
-            using var busy = _services.Busy.Begin();
 
             progress = new ProgressWindow("Extracting", this);
             progress.Activate();
