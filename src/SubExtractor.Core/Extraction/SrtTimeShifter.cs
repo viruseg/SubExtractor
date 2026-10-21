@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.RegularExpressions;
 
 namespace SubExtractor.Core.Extraction;
@@ -36,7 +35,7 @@ public static class SrtTimeShifter
         }
 
         var bytes = File.ReadAllBytes(path);
-        var (encoding, preambleLength) = DetectEncoding(bytes);
+        var (encoding, preambleLength) = SrtFileEncoding.Detect(bytes);
         var content = encoding.GetString(bytes, preambleLength, bytes.Length - preambleLength);
         var shifted = Shift(content, shift);
         if (shifted == content)
@@ -78,13 +77,4 @@ public static class SrtTimeShifter
             match.Groups["separator"].Value,
             (absolute % 1000).ToString("000"));
     }
-
-    private static (Encoding Encoding, int PreambleLength) DetectEncoding(byte[] bytes) =>
-        bytes switch
-        {
-            [0xEF, 0xBB, 0xBF, ..] => (Encoding.UTF8, 3),
-            [0xFF, 0xFE, ..] => (Encoding.Unicode, 2),
-            [0xFE, 0xFF, ..] => (Encoding.BigEndianUnicode, 2),
-            _ => (Encoding.UTF8, 0),
-        };
 }

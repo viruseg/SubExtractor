@@ -403,6 +403,7 @@ public sealed partial class MainWindow : Window
         _isExtracting = true;
         var log = _services.Log;
         var timeShift = _services.TimeShift.Shift;
+        var textRemovalRules = _services.TextRemoval.EffectiveRules;
         var started = false;
         try
         {
@@ -435,13 +436,17 @@ public sealed partial class MainWindow : Window
                         var overwrite = await _services.OverwriteRecycler.RecycleAsync(plans, cts.Token);
                         ReportRecycleFailures(log, overwrite.Failures);
 
-                        if (timeShift != TimeSpan.Zero)
+                        if (timeShift != TimeSpan.Zero || textRemovalRules.Count > 0)
                         {
-                            ReportTimeShiftSkips(log, overwrite.ExtractablePlans);
+                            ReportSrtOnlySkips(
+                                log,
+                                overwrite.ExtractablePlans,
+                                timeShift != TimeSpan.Zero,
+                                textRemovalRules.Count > 0);
                         }
 
                         summary = await _services.Extractor.ExtractAsync(
-                            overwrite.ExtractablePlans, timeShift, sink, cts.Token);
+                            overwrite.ExtractablePlans, timeShift, textRemovalRules, sink, cts.Token);
                     }
                     finally
                     {
@@ -528,13 +533,24 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private static void ReportTimeShiftSkips(ActivityLog log, IReadOnlyList<OutputPlan> plans)
+    private static void ReportSrtOnlySkips(
+        ActivityLog log,
+        IReadOnlyList<OutputPlan> plans,
+        bool appliesTimeShift,
+        bool appliesTextRemoval)
     {
+        var operations = (appliesTimeShift, appliesTextRemoval) switch
+        {
+            (true, true) => "Time shift and text removal are",
+            (true, false) => "Time shift is",
+            _ => "Text removal is",
+        };
+
         foreach (var plan in plans.Where(plan =>
                      !plan.Extension.Equals(".srt", StringComparison.OrdinalIgnoreCase)))
         {
             log.Add(
-                "Time shift is only applied to SRT subtitles; " +
+                $"{operations} only applied to SRT subtitles; " +
                 $"skipped '{Path.GetFileName(plan.FinalPath)}'.");
         }
     }
@@ -549,6 +565,7 @@ public sealed partial class MainWindow : Window
     {
         _currentFolder = folder;
         _services.TimeShift.SelectFolder(folder);
+        _services.TextRemoval.SelectFolder(folder);
     }
 
     private void ColumnHeaderCheckBox_Click(object sender, RoutedEventArgs e)

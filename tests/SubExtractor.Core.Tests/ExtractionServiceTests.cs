@@ -241,6 +241,61 @@ public class ExtractionServiceTests
         Assert.Equal(content, File.ReadAllText(final));
     }
 
+    [Fact]
+    public async Task Extract_applies_text_removal_to_srt()
+    {
+        using var temp = new TempDirectory();
+        var final = Path.Combine(temp.Path, "Movie.eng.srt");
+        var plan = new OutputPlan(
+            new SubtitleTrack(Path.Combine(temp.Path, "Movie.mkv"), 2, "subrip", null, "eng"),
+            final, ".srt", "srt", SubtitleWriteMode.Copy, false);
+        var runner = new WritingProcessRunner("1\n00:00:05,052 --> 00:00:06,251\nText\n");
+
+        var summary = await new ExtractionService(runner, "ffmpeg.exe")
+            .ExtractAsync([plan], TimeSpan.Zero, ["Text"], new RecordingExtractionSink(),
+                CancellationToken.None);
+
+        Assert.Equal(1, summary.Succeeded);
+        Assert.Equal("1\n00:00:05,052 --> 00:00:06,251\n\n", File.ReadAllText(final));
+    }
+
+    [Fact]
+    public async Task Extract_applies_time_shift_and_text_removal_to_srt()
+    {
+        using var temp = new TempDirectory();
+        var final = Path.Combine(temp.Path, "Movie.eng.srt");
+        var plan = new OutputPlan(
+            new SubtitleTrack(Path.Combine(temp.Path, "Movie.mkv"), 2, "subrip", null, "eng"),
+            final, ".srt", "srt", SubtitleWriteMode.Copy, false);
+        var runner = new WritingProcessRunner("1\n00:00:05,052 --> 00:00:06,251\nText\n");
+
+        var summary = await new ExtractionService(runner, "ffmpeg.exe")
+            .ExtractAsync([plan], TimeSpan.FromSeconds(1), ["Text"], new RecordingExtractionSink(),
+                CancellationToken.None);
+
+        Assert.Equal(1, summary.Succeeded);
+        Assert.Equal("1\n00:00:06,052 --> 00:00:07,251\n\n", File.ReadAllText(final));
+    }
+
+    [Fact]
+    public async Task Extract_does_not_apply_text_removal_to_non_srt()
+    {
+        using var temp = new TempDirectory();
+        var final = Path.Combine(temp.Path, "Movie.eng.ass");
+        var plan = new OutputPlan(
+            new SubtitleTrack(Path.Combine(temp.Path, "Movie.mkv"), 2, "ass", null, "eng"),
+            final, ".ass", "ass", SubtitleWriteMode.Copy, false);
+        const string content = "1\n00:00:05,052 --> 00:00:06,251\nText\n";
+        var runner = new WritingProcessRunner(content);
+
+        var summary = await new ExtractionService(runner, "ffmpeg.exe")
+            .ExtractAsync([plan], TimeSpan.Zero, ["Text"], new RecordingExtractionSink(),
+                CancellationToken.None);
+
+        Assert.Equal(1, summary.Succeeded);
+        Assert.Equal(content, File.ReadAllText(final));
+    }
+
     private sealed class WritingProcessRunner(string content, int exitCode = 0) : IProcessRunner
     {
         public List<IReadOnlyList<string>> Calls { get; } = [];

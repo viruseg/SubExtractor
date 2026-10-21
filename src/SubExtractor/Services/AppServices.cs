@@ -26,6 +26,9 @@ public sealed class AppServices
         TimeShift = new FolderTimeShift(new SubtitleShiftStore(DataDirectory));
         TimeShift.PersistenceFailed += (_, exception) =>
             Log.Add($"Couldn't access saved subtitle time shifts: {exception.Message}", isError: true);
+        TextRemoval = new TextRemovalSettings(new SubtitleTextStore(DataDirectory));
+        TextRemoval.PersistenceFailed += (_, exception) =>
+            Log.Add($"Couldn't access saved text removal rules: {exception.Message}", isError: true);
         Bootstrapper = new FfmpegBootstrapper(Ffmpeg, Busy, Operations, Log);
     }
 
@@ -46,6 +49,8 @@ public sealed class AppServices
     public ActivityLog Log { get; }
 
     public FolderTimeShift TimeShift { get; }
+
+    public TextRemovalSettings TextRemoval { get; }
 
     public FfmpegBootstrapper Bootstrapper { get; }
 

@@ -19,6 +19,8 @@ public sealed partial class SettingsWindow : Window
     private bool _isUpdating;
     private bool _shiftReady;
     private bool _updatingShift;
+    private bool _rulesReady;
+    private bool _updatingRules;
     private string? _latestVersionDisplay;
 
     public SettingsWindow(AppServices services, Window owner)
@@ -27,15 +29,18 @@ public sealed partial class SettingsWindow : Window
         ViewModel = new SettingsViewModel();
         InitializeComponent();
         LoadTimeShift();
+        LoadTextRules();
         _shiftReady = true;
+        _rulesReady = true;
         WindowOwner.SetOwner(this, owner);
         AppWindow.SetIcon("Assets/AppIcon.ico");
         AppWindow.TitleBar.PreferredTheme = TitleBarTheme.Dark;
-        AppWindow.Resize(new SizeInt32(560, 180));
+        AppWindow.Resize(new SizeInt32(640, 620));
         WindowOwner.CenterOnOwner(this, owner);
 
         _services.Busy.Changed += Services_BusyChanged;
         _services.TimeShift.Changed += TimeShift_Changed;
+        _services.TextRemoval.Changed += TextRemoval_Changed;
         SettingsRoot.Loaded += SettingsWindow_Loaded;
         AppWindow.Closing += SettingsWindow_Closing;
         Closed += SettingsWindow_Closed;
@@ -67,8 +72,10 @@ public sealed partial class SettingsWindow : Window
 
     private void SettingsWindow_Closed(object sender, WindowEventArgs args)
     {
+        _services.TextRemoval.Save();
         _services.Busy.Changed -= Services_BusyChanged;
         _services.TimeShift.Changed -= TimeShift_Changed;
+        _services.TextRemoval.Changed -= TextRemoval_Changed;
     }
 
     private void TimeShift_Changed(object? sender, EventArgs e)
@@ -78,6 +85,56 @@ public sealed partial class SettingsWindow : Window
             LoadTimeShift();
         }
     }
+
+    private void TextRemoval_Changed(object? sender, EventArgs e)
+    {
+        if (!_updatingRules)
+        {
+            LoadTextRules();
+        }
+    }
+
+    private void LoadTextRules()
+    {
+        _updatingRules = true;
+
+        var hasFolder = _services.TextRemoval.Folder is not null;
+        FolderRemovalBox.IsEnabled = hasFolder;
+        FolderRemovalBox.Text = string.Join(Environment.NewLine, _services.TextRemoval.FolderRules);
+        GlobalRemovalBox.Text = string.Join(Environment.NewLine, _services.TextRemoval.GlobalRules);
+
+        _updatingRules = false;
+    }
+
+    private void FolderRemovalBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!_rulesReady || _updatingRules)
+        {
+            return;
+        }
+
+        _updatingRules = true;
+        _services.TextRemoval.UpdateFolderRules(ParseRules(FolderRemovalBox.Text));
+        _updatingRules = false;
+    }
+
+    private void GlobalRemovalBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!_rulesReady || _updatingRules)
+        {
+            return;
+        }
+
+        _updatingRules = true;
+        _services.TextRemoval.UpdateGlobalRules(ParseRules(GlobalRemovalBox.Text));
+        _updatingRules = false;
+    }
+
+    private void RemovalBox_LostFocus(object sender, RoutedEventArgs e) =>
+        _services.TextRemoval.Save();
+
+    private static IReadOnlyList<string> ParseRules(string text) =>
+        text.Split(["\r\n", "\n", "\r"], StringSplitOptions.None);
 
     private async Task CheckVersionsAsync()
     {

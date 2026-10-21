@@ -14,9 +14,17 @@ public sealed class ExtractionService
         _ffmpegPath = ffmpegPath;
     }
 
+    public Task<ExtractionSummary> ExtractAsync(
+        IReadOnlyList<OutputPlan> plans,
+        TimeSpan subtitleTimeShift,
+        IExtractionProgressSink progress,
+        CancellationToken cancellationToken) =>
+        ExtractAsync(plans, subtitleTimeShift, [], progress, cancellationToken);
+
     public async Task<ExtractionSummary> ExtractAsync(
         IReadOnlyList<OutputPlan> plans,
         TimeSpan subtitleTimeShift,
+        IReadOnlyList<string> textRemovalRules,
         IExtractionProgressSink progress,
         CancellationToken cancellationToken)
     {
@@ -37,7 +45,9 @@ public sealed class ExtractionService
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var error = await ExtractTrackAsync(plan, subtitleTimeShift, cancellationToken).ConfigureAwait(false);
+                var error = await ExtractTrackAsync(
+                        plan, subtitleTimeShift, textRemovalRules, cancellationToken)
+                    .ConfigureAwait(false);
                 completedInFile++;
                 completedOverall++;
 
@@ -64,6 +74,7 @@ public sealed class ExtractionService
     private async Task<string?> ExtractTrackAsync(
         OutputPlan plan,
         TimeSpan subtitleTimeShift,
+        IReadOnlyList<string> textRemovalRules,
         CancellationToken cancellationToken)
     {
         var tempPath = plan.FinalPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
@@ -85,10 +96,17 @@ public sealed class ExtractionService
                 return $"ffmpeg did not produce an output file for '{plan.FinalPath}'.";
             }
 
-            if (subtitleTimeShift != TimeSpan.Zero &&
-                plan.Extension.Equals(".srt", StringComparison.OrdinalIgnoreCase))
+            if (plan.Extension.Equals(".srt", StringComparison.OrdinalIgnoreCase))
             {
-                SrtTimeShifter.ShiftFile(tempPath, subtitleTimeShift);
+                if (subtitleTimeShift != TimeSpan.Zero)
+                {
+                    SrtTimeShifter.ShiftFile(tempPath, subtitleTimeShift);
+                }
+
+                if (textRemovalRules.Count > 0)
+                {
+                    SrtTextRemover.RemoveFile(tempPath, textRemovalRules);
+                }
             }
 
             File.Move(tempPath, plan.FinalPath, overwrite: true);
