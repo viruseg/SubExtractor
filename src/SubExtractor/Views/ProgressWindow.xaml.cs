@@ -22,6 +22,7 @@ public sealed partial class ProgressWindow : Window
         AppWindow.SetIcon("Assets/AppIcon.ico");
         AppWindow.TitleBar.PreferredTheme = TitleBarTheme.Dark;
         AppWindow.Resize(new SizeInt32(760, 520));
+        WindowOwner.CenterOnOwner(this, owner);
 
         LogList.ItemsSource = log.Entries;
         log.PropertyChanged += Log_PropertyChanged;

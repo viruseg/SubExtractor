@@ -27,6 +27,7 @@ public sealed partial class SettingsWindow : Window
         AppWindow.SetIcon("Assets/AppIcon.ico");
         AppWindow.TitleBar.PreferredTheme = TitleBarTheme.Dark;
         AppWindow.Resize(new SizeInt32(560, 300));
+        WindowOwner.CenterOnOwner(this, owner);
 
         _services.Busy.Changed += Services_BusyChanged;
         SettingsRoot.Loaded += SettingsWindow_Loaded;
