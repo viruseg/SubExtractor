@@ -11,7 +11,9 @@ using SubExtractor.Core.Models;
 using SubExtractor.Services;
 using SubExtractor.ViewModels;
 using SubExtractor.Views;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
+using Windows.Storage;
 using Windows.Storage.Pickers;
 using Windows.System;
 using WinRT.Interop;
@@ -22,6 +24,7 @@ public sealed partial class MainWindow : Window
 {
     private readonly AppServices _services;
     private readonly SolidColorBrush _folderBorderBrush = new(Colors.Red);
+    private readonly Brush _folderDropBrush;
     private SettingsWindow? _settingsWindow;
     private ProgressWindow? _logWindow;
     private bool _startupStarted;
@@ -42,6 +45,7 @@ public sealed partial class MainWindow : Window
         AppWindow.Resize(new SizeInt32(1100, 720));
 
         _folderBorderBrush.Opacity = 0;
+        _folderDropBrush = (Brush)Application.Current.Resources["AccentFillColorDefaultBrush"];
         FolderBorder.BorderBrush = _folderBorderBrush;
 
         _services.Busy.Changed += Services_BusyChanged;
@@ -193,6 +197,80 @@ public sealed partial class MainWindow : Window
 
         e.Handled = true;
         _ = CommitFolderInputAsync();
+    }
+
+    private void FolderBorder_DragOver(object sender, DragEventArgs e)
+    {
+        if (!e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+            return;
+        }
+
+        e.AcceptedOperation = DataPackageOperation.Copy;
+        e.DragUIOverride.Caption = "Scan this folder";
+        e.DragUIOverride.IsCaptionVisible = true;
+        e.DragUIOverride.IsContentVisible = true;
+        e.Handled = true;
+        FolderBorder.BorderBrush = _folderDropBrush;
+    }
+
+    private void FolderBorder_DragLeave(object sender, DragEventArgs e) =>
+        FolderBorder.BorderBrush = _folderBorderBrush;
+
+    private void FolderBorder_Drop(object sender, DragEventArgs e) => _ = AcceptDropAsync(e);
+
+    private async Task AcceptDropAsync(DragEventArgs e)
+    {
+        e.Handled = true;
+        FolderBorder.BorderBrush = _folderBorderBrush;
+
+        if (!e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            return;
+        }
+
+        string? folder;
+        try
+        {
+            var items = await e.DataView.GetStorageItemsAsync();
+            folder = await ResolveDroppedFolderAsync(items);
+        }
+        catch (Exception)
+        {
+            // NOTE: the shell can revoke a data package while it is being read.
+            return;
+        }
+
+        if (folder is null)
+        {
+            return;
+        }
+
+        FolderBox.Text = folder;
+        await CommitFolderInputAsync();
+    }
+
+    private static async Task<string?> ResolveDroppedFolderAsync(IReadOnlyList<IStorageItem> items)
+    {
+        foreach (var item in items)
+        {
+            if (item is StorageFolder { Path.Length: > 0 } folder)
+            {
+                return folder.Path;
+            }
+
+            if (item is StorageFile { Path.Length: > 0 } file)
+            {
+                var parent = await file.GetParentAsync();
+                if (parent is { Path.Length: > 0 })
+                {
+                    return parent.Path;
+                }
+            }
+        }
+
+        return null;
     }
 
     private async Task CommitFolderInputAsync()

@@ -63,7 +63,11 @@
                         Background="{ThemeResource ControlFillColorDefaultBrush}"
                         BorderBrush="Transparent"
                         BorderThickness="2"
-                        CornerRadius="8">
+                        CornerRadius="8"
+                        AllowDrop="True"
+                        DragOver="FolderBorder_DragOver"
+                        DragLeave="FolderBorder_DragLeave"
+                        Drop="FolderBorder_Drop">
                     <Grid ColumnSpacing="8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
