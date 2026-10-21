@@ -1,0 +1,65 @@
+<Window
+    x:Class="SubExtractor.Views.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Settings">
+    <Grid x:Name="SettingsRoot"
+          Padding="28,24,28,24"
+          RowSpacing="12"
+          Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Text="FFmpeg version"
+                       VerticalAlignment="Center"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <TextBlock Grid.Column="1"
+                       Text="{x:Bind ViewModel.VersionText, Mode=OneWay}"
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" />
+        </Grid>
+
+        <TextBlock Grid.Row="1"
+                   Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                   TextWrapping="Wrap"
+                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+        <StackPanel Grid.Row="3"
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    HorizontalAlignment="Right">
+            <Button x:Name="RetryButton"
+                    Content="Retry"
+                    Visibility="{x:Bind ViewModel.RetryVisibility, Mode=OneWay}"
+                    Click="RetryButton_Click" />
+            <Button x:Name="UpdateButton"
+                    MinWidth="132"
+                    Visibility="{x:Bind ViewModel.UpdateVisibility, Mode=OneWay}"
+                    AutomationProperties.Name="{x:Bind ViewModel.UpdateButtonText, Mode=OneWay}"
+                    Click="UpdateButton_Click">
+                <Grid MinWidth="112" Height="32">
+                    <ProgressBar x:Name="UpdateProgressBar"
+                                 Height="8"
+                                 VerticalAlignment="Center"
+                                 Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+                                 Visibility="{x:Bind ViewModel.UpdateProgressVisibility, Mode=OneWay}"
+                                 Value="{x:Bind ViewModel.UpdateProgressValue, Mode=OneWay}"
+                                 IsIndeterminate="{x:Bind ViewModel.UpdateProgressIndeterminate, Mode=OneWay}" />
+                    <TextBlock Text="{x:Bind ViewModel.UpdateButtonText, Mode=OneWay}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                </Grid>
+            </Button>
+        </StackPanel>
+    </Grid>
+</Window>

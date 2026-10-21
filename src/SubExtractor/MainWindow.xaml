@@ -24,7 +24,8 @@
                         AutomationProperties.Name="Settings"
                         ToolTipService.ToolTip="Settings"
                         Background="Transparent"
-                        BorderThickness="0">
+                        BorderThickness="0"
+                        Click="SettingsButton_Click">
                     <FontIcon Glyph="&#xE713;" />
                 </Button>
             </TitleBar.RightHeader>

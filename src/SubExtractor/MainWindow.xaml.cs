@@ -21,6 +21,7 @@ public sealed partial class MainWindow : Window
 {
     private readonly AppServices _services;
     private readonly SolidColorBrush _folderBorderBrush = new(Colors.Red);
+    private SettingsWindow? _settingsWindow;
     private bool _startupStarted;
     private bool _suppressFolderCommit;
     private bool _isCommittingFolder;
@@ -56,7 +57,22 @@ public sealed partial class MainWindow : Window
     {
         var isEnabled = !_services.Busy.IsBusy;
         ContentHost.IsEnabled = isEnabled;
+        ContentHost.IsHitTestVisible = isEnabled;
         SettingsButton.IsEnabled = isEnabled;
+    }
+
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_settingsWindow is not null)
+        {
+            _settingsWindow.Activate();
+            return;
+        }
+
+        var settingsWindow = new SettingsWindow(_services, this);
+        settingsWindow.Closed += (_, _) => _settingsWindow = null;
+        _settingsWindow = settingsWindow;
+        settingsWindow.Activate();
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
