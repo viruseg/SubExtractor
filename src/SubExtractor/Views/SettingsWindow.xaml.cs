@@ -36,7 +36,7 @@ public sealed partial class SettingsWindow : Window
 
     public SettingsViewModel ViewModel { get; }
 
-    private async void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
+    private void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
     {
         if (_checkStarted)
         {
@@ -44,7 +44,7 @@ public sealed partial class SettingsWindow : Window
         }
 
         _checkStarted = true;
-        await CheckVersionsAsync();
+        _ = CheckVersionsAsync();
     }
 
     private void Services_BusyChanged(object? sender, EventArgs e) =>
@@ -61,7 +61,7 @@ public sealed partial class SettingsWindow : Window
     private void SettingsWindow_Closed(object sender, WindowEventArgs args) =>
         _services.Busy.Changed -= Services_BusyChanged;
 
-    private async void RetryButton_Click(object sender, RoutedEventArgs e) => await CheckVersionsAsync();
+    private void RetryButton_Click(object sender, RoutedEventArgs e) => _ = CheckVersionsAsync();
 
     private async Task CheckVersionsAsync()
     {
@@ -120,7 +120,9 @@ public sealed partial class SettingsWindow : Window
         }
     }
 
-    private async void UpdateButton_Click(object sender, RoutedEventArgs e)
+    private void UpdateButton_Click(object sender, RoutedEventArgs e) => _ = UpdateAsync();
+
+    private async Task UpdateAsync()
     {
         if (_isUpdating || _isChecking || _services.Busy.IsBusy)
         {

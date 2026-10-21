@@ -108,7 +108,9 @@ public sealed partial class MainWindow : Window
         settingsWindow.Activate();
     }
 
-    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    private void MainWindow_Loaded(object sender, RoutedEventArgs e) => _ = StartUpAsync();
+
+    private async Task StartUpAsync()
     {
         if (_startupStarted)
         {
@@ -140,7 +142,9 @@ public sealed partial class MainWindow : Window
 
     private void MainWindow_Closed(object sender, WindowEventArgs args) => Application.Current.Exit();
 
-    private async void BrowseButton_Click(object sender, RoutedEventArgs e)
+    private void BrowseButton_Click(object sender, RoutedEventArgs e) => _ = BrowseAsync();
+
+    private async Task BrowseAsync()
     {
         _suppressFolderCommit = true;
         try
@@ -301,7 +305,9 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private async void ExtractAll_Click(object sender, RoutedEventArgs e)
+    private void ExtractAll_Click(object sender, RoutedEventArgs e) => _ = ExtractAllAsync();
+
+    private async Task ExtractAllAsync()
     {
         if (_isExtracting || _services.Busy.IsBusy || _services.Operations.IsRunning)
         {
