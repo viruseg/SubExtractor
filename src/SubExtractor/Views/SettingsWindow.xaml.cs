@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using SubExtractor.Core.Ffmpeg;
 using SubExtractor.Services;
 using SubExtractor.ViewModels;
+using Windows.Foundation;
 using Windows.Graphics;
 
 namespace SubExtractor.Views;
@@ -14,6 +15,7 @@ public sealed partial class SettingsWindow : Window
     private static readonly TimeSpan RemoteVersionTimeout = TimeSpan.FromSeconds(15);
 
     private readonly AppServices _services;
+    private readonly Window _owner;
     private bool _checkStarted;
     private bool _isChecking;
     private bool _isUpdating;
@@ -26,6 +28,7 @@ public sealed partial class SettingsWindow : Window
     public SettingsWindow(AppServices services, Window owner)
     {
         _services = services;
+        _owner = owner;
         ViewModel = new SettingsViewModel();
         InitializeComponent();
         LoadTimeShift();
@@ -50,6 +53,8 @@ public sealed partial class SettingsWindow : Window
 
     private void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        ResizeToContent();
+
         if (_checkStarted)
         {
             return;
@@ -57,6 +62,30 @@ public sealed partial class SettingsWindow : Window
 
         _checkStarted = true;
         _ = CheckVersionsAsync();
+    }
+
+    private void ResizeToContent()
+    {
+        var scale = SettingsRoot.XamlRoot?.RasterizationScale ?? 1;
+        var chromeHeight = AppWindow.Size.Height - AppWindow.ClientSize.Height;
+        var contentHeight = SettingsRoot.DesiredSize.Height + GetBottomGapCompensation();
+        var workArea = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest).WorkArea;
+        var clientHeight = Math.Min((int)Math.Ceiling(contentHeight * scale), workArea.Height - chromeHeight);
+
+        AppWindow.Resize(new SizeInt32(AppWindow.Size.Width, clientHeight + chromeHeight));
+        WindowOwner.CenterOnOwner(this, _owner);
+    }
+
+    private double GetBottomGapCompensation()
+    {
+        if (SettingsRoot.Children[0] is not FrameworkElement first)
+        {
+            return 0;
+        }
+
+        // WHY: The first row centers its label, so mirror that visible inset at the bottom.
+        var firstTop = first.TransformToVisual(SettingsRoot).TransformPoint(new Point(0, 0)).Y;
+        return Math.Max(0, firstTop - SettingsRoot.Padding.Bottom);
     }
 
     private void Services_BusyChanged(object? sender, EventArgs e) =>

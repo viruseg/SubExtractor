@@ -8,6 +8,7 @@
                   Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
         <Grid x:Name="SettingsRoot"
               Padding="28,24,28,24"
+              VerticalAlignment="Top"
               ColumnSpacing="16"
               RowSpacing="20">
             <Grid.ColumnDefinitions>
