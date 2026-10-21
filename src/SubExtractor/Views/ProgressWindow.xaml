@@ -15,7 +15,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Grid Margin="24,20,24,12" ColumnSpacing="16">
+        <Grid x:Name="ProgressPanel" Margin="24,20,24,12" ColumnSpacing="16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -37,19 +37,27 @@
                   ScrollViewer.HorizontalScrollMode="Disabled">
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="viewModels:LogEntry">
-                    <Grid Padding="0,2" ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
+                    <Grid>
+                        <Grid Padding="0,2"
+                              ColumnSpacing="12"
+                              Visibility="{x:Bind ContentVisibility}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
 
-                        <TextBlock Text="{x:Bind Timestamp}"
-                                   FontFamily="Consolas"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Grid.Column="1"
-                                   Text="{x:Bind Message, Mode=OneWay}"
-                                   TextWrapping="Wrap"
-                                   Foreground="{Binding IsError, Converter={StaticResource LogForegroundConverter}}" />
+                            <TextBlock Text="{x:Bind Timestamp}"
+                                       FontFamily="Consolas"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{x:Bind Message, Mode=OneWay}"
+                                       TextWrapping="Wrap"
+                                       Foreground="{Binding IsError, Converter={StaticResource LogForegroundConverter}}" />
+                        </Grid>
+                        <Border Height="1"
+                                Margin="0,10"
+                                Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                Visibility="{x:Bind SeparatorVisibility}" />
                     </Grid>
                 </DataTemplate>
             </ListView.ItemTemplate>

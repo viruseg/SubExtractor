@@ -12,6 +12,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <TitleBar x:Name="AppTitleBar" Title="SubExtractor">
@@ -37,13 +38,12 @@
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch">
             <Grid x:Name="ContentRoot"
-                  Padding="24,16,24,20"
+                  Padding="24,16,24,0"
                   RowSpacing="16"
                   Background="{ThemeResource LayerFillColorDefaultBrush}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <Border x:Name="FolderBorder"
@@ -210,25 +210,40 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                Margin="24" />
                 </Grid>
-
-                <Grid Grid.Row="2" ColumnSpacing="16">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-                               VerticalAlignment="Center"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               TextTrimming="CharacterEllipsis" />
-                    <Button x:Name="ExtractAllButton"
-                            Grid.Column="1"
-                            Content="Extract All"
-                            Style="{StaticResource AccentButtonStyle}"
-                            IsEnabled="{x:Bind ViewModel.CanExtract, Mode=OneWay}"
-                            Click="ExtractAll_Click" />
-                </Grid>
             </Grid>
         </ContentControl>
+
+        <Grid Grid.Row="2"
+              Padding="24,16,24,20"
+              ColumnSpacing="16"
+              Background="{ThemeResource LayerFillColorDefaultBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button x:Name="StatusButton"
+                    Grid.Column="0"
+                    MinHeight="32"
+                    Padding="0"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalAlignment="Center"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    AutomationProperties.Name="Activity log"
+                    ToolTipService.ToolTip="Show activity log"
+                    Click="StatusButton_Click">
+                <TextBlock x:Name="StatusTextBlock"
+                           Text="{x:Bind Log.LastMessage, Mode=OneWay}"
+                           TextTrimming="CharacterEllipsis" />
+            </Button>
+            <Button x:Name="ExtractAllButton"
+                    Grid.Column="1"
+                    Content="Extract All"
+                    Style="{StaticResource AccentButtonStyle}"
+                    IsEnabled="{x:Bind ViewModel.CanExtract, Mode=OneWay}"
+                    Click="ExtractAll_Click" />
+        </Grid>
     </Grid>
 </Window>

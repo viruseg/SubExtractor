@@ -14,7 +14,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private bool _canExtract;
     private bool _hasResults;
     private string _emptyStateText = "Choose a folder to scan.";
-    private string _statusText = string.Empty;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -66,21 +65,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
             _emptyStateText = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(EmptyStateVisibility));
-        }
-    }
-
-    public string StatusText
-    {
-        get => _statusText;
-        set
-        {
-            if (_statusText == value)
-            {
-                return;
-            }
-
-            _statusText = value;
-            OnPropertyChanged();
         }
     }
 

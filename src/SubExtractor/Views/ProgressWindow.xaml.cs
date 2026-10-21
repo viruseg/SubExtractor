@@ -1,4 +1,5 @@
-using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -11,109 +12,86 @@ namespace SubExtractor.Views;
 
 public sealed partial class ProgressWindow : Window
 {
-    private readonly ObservableCollection<LogEntry> _entries = [];
-    private readonly TaskCompletionSource _closed =
-        new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private readonly TaskCompletionSource _loaded =
-        new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private bool _finished;
-    private bool _cancelRaised;
+    private readonly ActivityLog _log;
 
-    public ProgressWindow(string title, Window owner)
+    public ProgressWindow(ActivityLog log, Window owner)
     {
+        _log = log;
         InitializeComponent();
-        Title = title;
         WindowOwner.SetOwner(this, owner);
         AppWindow.SetIcon("Assets/AppIcon.ico");
         AppWindow.TitleBar.PreferredTheme = TitleBarTheme.Dark;
         AppWindow.Resize(new SizeInt32(760, 520));
-        LogList.ItemsSource = _entries;
-        RootGrid.Loaded += (_, _) => _loaded.TrySetResult();
-        AppWindow.Closing += OnClosing;
+
+        LogList.ItemsSource = log.Entries;
+        log.PropertyChanged += Log_PropertyChanged;
+        log.Entries.CollectionChanged += Entries_CollectionChanged;
+        RootGrid.Loaded += RootGrid_Loaded;
         Closed += OnClosed;
+
+        ApplyState();
     }
 
-    public event EventHandler? CancelRequested;
+    private void RootGrid_Loaded(object sender, RoutedEventArgs e) => ScrollToLast();
 
-    public void SetOverall(double? percent)
+    private void Log_PropertyChanged(object? sender, PropertyChangedEventArgs e) => ApplyState();
+
+    private void Entries_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+        ScrollToLast();
+
+    private void ApplyState()
     {
-        if (percent is null)
+        Title = _log.Title;
+        ProgressPanel.Visibility = _log.IsRunning ? Visibility.Visible : Visibility.Collapsed;
+
+        if (_log.Progress is { } percent)
+        {
+            var value = Math.Clamp(percent, 0, 100);
+            OverallProgress.IsIndeterminate = false;
+            OverallProgress.Value = value;
+            PercentageText.Text = $"{value:0}%";
+        }
+        else
         {
             OverallProgress.IsIndeterminate = true;
-            PercentageText.Text = "";
-            return;
+            PercentageText.Text = string.Empty;
         }
 
-        var value = Math.Clamp(percent.Value, 0, 100);
-        OverallProgress.IsIndeterminate = false;
-        OverallProgress.Value = value;
-        PercentageText.Text = $"{value:0}%";
-    }
-
-    public LogEntry AddLog(string message, bool isError = false)
-    {
-        var entry = new LogEntry(DateTime.Now.ToString("HH:mm:ss"), message, isError);
-        _entries.Add(entry);
-        LogList.ScrollIntoView(entry);
-        return entry;
-    }
-
-    public void UpdateLog(LogEntry entry, string message, bool isError = false)
-    {
-        entry.Message = message;
-        entry.IsError = isError;
-        LogList.ScrollIntoView(entry);
-    }
-
-    public void Finish(string summary)
-    {
-        AddLog(summary);
-        CancelButton.Content = "Close";
-        CancelButton.IsEnabled = true;
-        _finished = true;
-    }
-
-    public void DisableCancel()
-    {
-        if (!_finished)
+        if (_log.IsRunning)
         {
-            CancelButton.IsEnabled = false;
+            CancelButton.Content = _log.IsCancelRequested ? "Cancelling..." : "Cancel";
+            CancelButton.IsEnabled = !_log.IsCancelRequested;
         }
-    }
-
-    public void AllowClose() => _finished = true;
-
-    public Task WaitForCloseAsync() => _closed.Task;
-
-    public Task WaitForLoadedAsync() => _loaded.Task;
-
-    private void OnClosing(AppWindow sender, AppWindowClosingEventArgs args)
-    {
-        if (!_finished)
+        else
         {
-            args.Cancel = true;
+            CancelButton.Content = "Close";
+            CancelButton.IsEnabled = true;
         }
     }
 
-    private void OnClosed(object sender, WindowEventArgs args) => _closed.TrySetResult();
+    private void ScrollToLast()
+    {
+        if (_log.Entries.Count > 0)
+        {
+            LogList.ScrollIntoView(_log.Entries[^1]);
+        }
+    }
+
+    private void OnClosed(object sender, WindowEventArgs args)
+    {
+        _log.PropertyChanged -= Log_PropertyChanged;
+        _log.Entries.CollectionChanged -= Entries_CollectionChanged;
+    }
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_finished)
+        if (_log.IsRunning)
         {
-            Close();
+            _log.RequestCancel();
             return;
         }
 
-        if (_cancelRaised)
-        {
-            return;
-        }
-
-        _cancelRaised = true;
-        CancelButton.IsEnabled = false;
-        CancelButton.Content = "Cancelling...";
-        CancelRequested?.Invoke(this, EventArgs.Empty);
+        Close();
     }
 }
 

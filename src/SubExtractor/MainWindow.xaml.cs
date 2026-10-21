@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -22,6 +23,7 @@ public sealed partial class MainWindow : Window
     private readonly AppServices _services;
     private readonly SolidColorBrush _folderBorderBrush = new(Colors.Red);
     private SettingsWindow? _settingsWindow;
+    private ProgressWindow? _logWindow;
     private bool _startupStarted;
     private bool _suppressFolderCommit;
     private bool _isCommittingFolder;
@@ -46,12 +48,28 @@ public sealed partial class MainWindow : Window
         MainRoot.Loaded += MainWindow_Loaded;
         AppWindow.Closing += MainWindow_Closing;
         Closed += MainWindow_Closed;
+        Log.PropertyChanged += Log_PropertyChanged;
+        ApplyStatusForeground();
         ApplyBusyState();
     }
 
     public MainViewModel ViewModel { get; }
 
+    public ActivityLog Log => _services.Log;
+
     private void Services_BusyChanged(object? sender, EventArgs e) => ApplyBusyState();
+
+    private void Log_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ActivityLog.LastIsError))
+        {
+            ApplyStatusForeground();
+        }
+    }
+
+    private void ApplyStatusForeground() =>
+        StatusTextBlock.Foreground = (Brush)Application.Current.Resources[
+            Log.LastIsError ? "SystemFillColorCriticalBrush" : "TextFillColorSecondaryBrush"];
 
     private void ApplyBusyState()
     {
@@ -59,6 +77,21 @@ public sealed partial class MainWindow : Window
         ContentHost.IsEnabled = isEnabled;
         ContentHost.IsHitTestVisible = isEnabled;
         SettingsButton.IsEnabled = isEnabled;
+        ExtractAllButton.IsEnabled = isEnabled && ViewModel.CanExtract;
+    }
+
+    private void StatusButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_logWindow is not null)
+        {
+            _logWindow.Activate();
+            return;
+        }
+
+        var logWindow = new ProgressWindow(Log, this);
+        logWindow.Closed += (_, _) => _logWindow = null;
+        _logWindow = logWindow;
+        logWindow.Activate();
     }
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
@@ -206,64 +239,66 @@ public sealed partial class MainWindow : Window
 
         using var busy = _services.Busy.Begin();
 
-        var progress = new ProgressWindow("Scanning", this);
-        progress.Activate();
-        progress.AddLog("Scan started");
-        progress.SetOverall(0);
+        var log = _services.Log;
+        log.BeginOperation("Scanning");
+        log.Add("Scan started");
+        log.SetProgress(0);
 
-        var sink = new ScanProgressSink(progress, DispatcherQueue);
-
-        ScanResult result;
         try
         {
-            using (var operation = _services.Operations.Begin())
-            using (var cts = CancellationTokenSource.CreateLinkedTokenSource(operation.Token))
+            var sink = new ScanProgressSink(log, DispatcherQueue);
+
+            ScanResult result;
+            try
             {
-                EventHandler cancelHandler = (_, _) => cts.Cancel();
-                progress.CancelRequested += cancelHandler;
-                try
+                using (var operation = _services.Operations.Begin())
+                using (var cts = CancellationTokenSource.CreateLinkedTokenSource(operation.Token))
                 {
-                    result = await _services.Scanner.ScanAsync(folder, sink, cts.Token);
-                }
-                finally
-                {
-                    // WHY: the CTS is disposed at scope exit; a late Cancel must not reach it.
-                    progress.CancelRequested -= cancelHandler;
-                    progress.DisableCancel();
+                    EventHandler cancelHandler = (_, _) => cts.Cancel();
+                    log.CancelRequested += cancelHandler;
+                    try
+                    {
+                        result = await _services.Scanner.ScanAsync(folder, sink, cts.Token);
+                    }
+                    finally
+                    {
+                        // WHY: the CTS is disposed at scope exit; a late Cancel must not reach it.
+                        log.CancelRequested -= cancelHandler;
+                    }
                 }
             }
-        }
-        catch (OperationCanceledException)
-        {
-            progress.AllowClose();
-            progress.Close();
-            ViewModel.SetVideos([]);
-            ViewModel.EmptyStateText = "Scan cancelled.";
-            ViewModel.StatusText = "Scan cancelled.";
-            return;
-        }
+            catch (OperationCanceledException)
+            {
+                await sink.FlushAsync();
+                log.Add("Scan cancelled.");
+                ViewModel.SetVideos([]);
+                ViewModel.EmptyStateText = "Scan cancelled.";
+                return;
+            }
 
-        if (result.FolderError is not null)
-        {
-            ClearResults("Couldn't read this folder.");
+            if (result.FolderError is not null)
+            {
+                ClearResults("Couldn't read this folder.");
+                await sink.FlushAsync();
+                log.Add("Scan finished: 0 files, 0 subtitle tracks");
+                return;
+            }
+
+            ViewModel.SetVideos(result.Videos);
+            var trackCount = result.Videos.Sum(video => video.Tracks.Count);
+
+            if (result.Videos.Count == 0)
+            {
+                ViewModel.EmptyStateText = "No video files found in this folder.";
+            }
+
             await sink.FlushAsync();
-            progress.Finish("Scan finished: 0 files, 0 subtitle tracks");
-            await progress.WaitForCloseAsync();
-            return;
+            log.Add($"Scan finished: {result.Videos.Count} files, {trackCount} subtitle tracks");
         }
-
-        ViewModel.SetVideos(result.Videos);
-        var trackCount = result.Videos.Sum(video => video.Tracks.Count);
-
-        if (result.Videos.Count == 0)
+        finally
         {
-            ViewModel.EmptyStateText = "No video files found in this folder.";
+            log.EndOperation();
         }
-
-        ViewModel.StatusText = $"{result.Videos.Count} videos, {trackCount} subtitle tracks";
-        await sink.FlushAsync();
-        progress.Finish($"Scan finished: {result.Videos.Count} files, {trackCount} subtitle tracks");
-        await progress.WaitForCloseAsync();
     }
 
     private async void ExtractAll_Click(object sender, RoutedEventArgs e)
@@ -280,7 +315,8 @@ public sealed partial class MainWindow : Window
         }
 
         _isExtracting = true;
-        ProgressWindow? progress = null;
+        var log = _services.Log;
+        var started = false;
         try
         {
             using var busy = _services.Busy.Begin();
@@ -292,13 +328,12 @@ public sealed partial class MainWindow : Window
                 return;
             }
 
-            progress = new ProgressWindow("Extracting", this);
-            progress.Activate();
-            await progress.WaitForLoadedAsync();
-            progress.AddLog("Extraction started");
-            progress.SetOverall(0);
+            log.BeginOperation("Extracting");
+            started = true;
+            log.Add("Extraction started");
+            log.SetProgress(0);
 
-            var sink = new ExtractionProgressSink(progress, DispatcherQueue);
+            var sink = new ExtractionProgressSink(log, DispatcherQueue);
 
             ExtractionSummary summary;
             try
@@ -307,7 +342,7 @@ public sealed partial class MainWindow : Window
                 using (var cts = CancellationTokenSource.CreateLinkedTokenSource(operation.Token))
                 {
                     EventHandler cancelHandler = (_, _) => cts.Cancel();
-                    progress.CancelRequested += cancelHandler;
+                    log.CancelRequested += cancelHandler;
                     try
                     {
                         summary = await _services.Extractor.ExtractAsync(plans, sink, cts.Token);
@@ -315,46 +350,37 @@ public sealed partial class MainWindow : Window
                     finally
                     {
                         // WHY: the CTS is disposed at scope exit; a late Cancel must not reach it.
-                        progress.CancelRequested -= cancelHandler;
-                        progress.DisableCancel();
+                        log.CancelRequested -= cancelHandler;
                     }
                 }
             }
             catch (OperationCanceledException)
             {
-                progress.AllowClose();
-                progress.Close();
-                ViewModel.StatusText = "Extraction cancelled.";
+                await sink.FlushAsync();
+                log.Add("Extraction cancelled.");
                 return;
             }
             catch (Exception ex)
             {
                 await sink.FlushAsync();
-                progress.AddLog($"Extraction failed: {ex.Message}", isError: true);
-                progress.Finish("Extraction failed.");
-                ViewModel.StatusText = "Extraction failed.";
-                await progress.WaitForCloseAsync();
+                log.Add($"Extraction failed: {ex.Message}", isError: true);
                 return;
             }
 
             await sink.FlushAsync();
-            var result = $"Extraction finished: {summary.Succeeded} succeeded, {summary.Failed} failed.";
-            ViewModel.StatusText = result;
-            progress.Finish(result);
-            await progress.WaitForCloseAsync();
+            log.Add($"Extraction finished: {summary.Succeeded} succeeded, {summary.Failed} failed.");
         }
         catch (Exception ex)
         {
-            if (progress is not null)
-            {
-                progress.AllowClose();
-                progress.Close();
-            }
-
-            ViewModel.StatusText = $"Extraction failed: {ex.Message}";
+            log.Add($"Extraction failed: {ex.Message}", isError: true);
         }
         finally
         {
+            if (started)
+            {
+                log.EndOperation();
+            }
+
             _isExtracting = false;
         }
     }
@@ -398,7 +424,6 @@ public sealed partial class MainWindow : Window
     {
         ViewModel.SetVideos([]);
         ViewModel.EmptyStateText = emptyStateText;
-        ViewModel.StatusText = string.Empty;
     }
 
     private void ColumnHeaderCheckBox_Click(object sender, RoutedEventArgs e)

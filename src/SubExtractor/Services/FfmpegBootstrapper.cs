@@ -1,9 +1,9 @@
 using System.Reflection.PortableExecutable;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using SubExtractor.Core.Ffmpeg;
 using SubExtractor.ViewModels;
-using SubExtractor.Views;
 
 namespace SubExtractor.Services;
 
@@ -20,15 +20,18 @@ public sealed class FfmpegBootstrapper
     private readonly FfmpegManager _manager;
     private readonly AppBusyState _busy;
     private readonly OperationCoordinator _operations;
+    private readonly ActivityLog _log;
 
     public FfmpegBootstrapper(
         FfmpegManager manager,
         AppBusyState busy,
-        OperationCoordinator operations)
+        OperationCoordinator operations,
+        ActivityLog log)
     {
         _manager = manager;
         _busy = busy;
         _operations = operations;
+        _log = log;
     }
 
     public async Task<bool> EnsureInstalledAsync(Window owner)
@@ -42,16 +45,16 @@ public sealed class FfmpegBootstrapper
 
         while (true)
         {
-            var progressWindow = new ProgressWindow("Downloading ffmpeg", owner);
-            progressWindow.Activate();
-            await progressWindow.WaitForLoadedAsync();
+            _log.BeginOperation("Downloading ffmpeg");
+            _log.SetProgress(0);
 
-            var progress = new InstallProgress(progressWindow);
+            var progress = new InstallProgress(_log, owner.DispatcherQueue);
 
             using (var operation = _operations.Begin())
             using (var cancellation = CancellationTokenSource.CreateLinkedTokenSource(operation.Token))
             {
-                progressWindow.CancelRequested += (_, _) => cancellation.Cancel();
+                EventHandler cancelHandler = (_, _) => cancellation.Cancel();
+                _log.CancelRequested += cancelHandler;
 
                 try
                 {
@@ -59,15 +62,15 @@ public sealed class FfmpegBootstrapper
                 }
                 catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
                 {
-                    progressWindow.AllowClose();
-                    progressWindow.Close();
+                    _log.Add("FFmpeg installation cancelled.");
+                    _log.EndOperation();
                     return false;
                 }
                 catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
                 {
-                    await ShowDataNotWritableAsync(progressWindow);
-                    progressWindow.AllowClose();
-                    progressWindow.Close();
+                    _log.Add($"FFmpeg installation failed: {ex.Message}", isError: true);
+                    _log.EndOperation();
+                    await ShowDataNotWritableAsync(owner);
                     return false;
                 }
                 catch (Exception ex)
@@ -75,10 +78,9 @@ public sealed class FfmpegBootstrapper
                     var message = ex is OperationCanceledException
                         ? "The download timed out. Check your connection and try again."
                         : ex.Message;
-                    progressWindow.AddLog(message, isError: true);
-                    var choice = await ShowRetryDialogAsync(progressWindow, message);
-                    progressWindow.AllowClose();
-                    progressWindow.Close();
+                    _log.Add(message, isError: true);
+                    _log.EndOperation();
+                    var choice = await ShowRetryDialogAsync(owner, message);
 
                     if (choice != ContentDialogResult.Primary)
                     {
@@ -87,10 +89,14 @@ public sealed class FfmpegBootstrapper
 
                     continue;
                 }
+                finally
+                {
+                    _log.CancelRequested -= cancelHandler;
+                }
             }
 
-            progressWindow.Finish("FFmpeg is ready.");
-            await progressWindow.WaitForCloseAsync();
+            _log.Add("FFmpeg is ready.");
+            _log.EndOperation();
             return true;
         }
     }
@@ -137,11 +143,11 @@ public sealed class FfmpegBootstrapper
         }
     }
 
-    private static async Task ShowDataNotWritableAsync(ProgressWindow progressWindow)
+    private static async Task ShowDataNotWritableAsync(Window owner)
     {
         var dialog = new ContentDialog
         {
-            XamlRoot = progressWindow.Content.XamlRoot,
+            XamlRoot = owner.Content.XamlRoot,
             Title = "Cannot write to the Data folder",
             Content = "SubExtractor stores ffmpeg in the Data folder next to the application. "
                 + "Make sure the application folder is writable and try again.",
@@ -152,12 +158,12 @@ public sealed class FfmpegBootstrapper
     }
 
     private static async Task<ContentDialogResult> ShowRetryDialogAsync(
-        ProgressWindow progressWindow,
+        Window owner,
         string details)
     {
         var dialog = new ContentDialog
         {
-            XamlRoot = progressWindow.Content.XamlRoot,
+            XamlRoot = owner.Content.XamlRoot,
             Title = "Download failed",
             Content = details,
             PrimaryButtonText = "Retry",
@@ -168,19 +174,20 @@ public sealed class FfmpegBootstrapper
         return await dialog.ShowAsync();
     }
 
-    private sealed class InstallProgress(ProgressWindow progressWindow) : IProgress<FfmpegInstallProgress>
+    private sealed class InstallProgress(ActivityLog log, DispatcherQueue dispatcher)
+        : IProgress<FfmpegInstallProgress>
     {
         private LogEntry? _downloadEntry;
 
         public void Report(FfmpegInstallProgress value)
         {
-            if (progressWindow.DispatcherQueue.HasThreadAccess)
+            if (dispatcher.HasThreadAccess)
             {
                 Apply(value);
             }
             else
             {
-                progressWindow.DispatcherQueue.TryEnqueue(() => Apply(value));
+                dispatcher.TryEnqueue(() => Apply(value));
             }
         }
 
@@ -195,33 +202,33 @@ public sealed class FfmpegBootstrapper
 
                     if (_downloadEntry is null)
                     {
-                        _downloadEntry = progressWindow.AddLog(message);
+                        _downloadEntry = log.Add(message);
                     }
                     else
                     {
-                        progressWindow.UpdateLog(_downloadEntry, message);
+                        log.Update(_downloadEntry, message);
                     }
 
-                    progressWindow.SetOverall(value.Percent);
+                    log.SetProgress(value.Percent);
                     break;
 
                 case VerifyingStage:
-                    progressWindow.AddLog("Verifying the download");
-                    progressWindow.SetOverall(null);
+                    log.Add("Verifying the download");
+                    log.SetProgress(null);
                     break;
 
                 case ExtractingStage:
-                    progressWindow.AddLog("Extracting ffmpeg");
-                    progressWindow.SetOverall(null);
+                    log.Add("Extracting ffmpeg");
+                    log.SetProgress(null);
                     break;
 
                 case InstallingStage:
-                    progressWindow.AddLog("Installing ffmpeg");
-                    progressWindow.SetOverall(null);
+                    log.Add("Installing ffmpeg");
+                    log.SetProgress(null);
                     break;
 
                 case DoneStage:
-                    progressWindow.SetOverall(100);
+                    log.SetProgress(100);
                     break;
             }
         }

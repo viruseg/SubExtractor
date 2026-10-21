@@ -21,7 +21,8 @@ public sealed class AppServices
         Extractor = new ExtractionService(processRunner, Ffmpeg.FfmpegPath);
         Busy = new AppBusyState();
         Operations = new OperationCoordinator();
-        Bootstrapper = new FfmpegBootstrapper(Ffmpeg, Busy, Operations);
+        Log = new ActivityLog();
+        Bootstrapper = new FfmpegBootstrapper(Ffmpeg, Busy, Operations, Log);
     }
 
     public string DataDirectory { get; }
@@ -35,6 +36,8 @@ public sealed class AppServices
     public AppBusyState Busy { get; }
 
     public OperationCoordinator Operations { get; }
+
+    public ActivityLog Log { get; }
 
     public FfmpegBootstrapper Bootstrapper { get; }
 
