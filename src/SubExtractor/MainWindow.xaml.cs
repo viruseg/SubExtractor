@@ -323,7 +323,7 @@ public sealed partial class MainWindow : Window
 
         var log = _services.Log;
         log.BeginOperation("Scanning");
-        log.Add("Scan started");
+        log.Add($"Scan started: {Path.GetFullPath(folder)}");
         log.SetProgress(0);
 
         try
