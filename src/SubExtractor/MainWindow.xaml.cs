@@ -400,6 +400,7 @@ public sealed partial class MainWindow : Window
 
         _isExtracting = true;
         var log = _services.Log;
+        var timeShift = _services.SubtitleTimeShift;
         var started = false;
         try
         {
@@ -432,8 +433,13 @@ public sealed partial class MainWindow : Window
                         var overwrite = await _services.OverwriteRecycler.RecycleAsync(plans, cts.Token);
                         ReportRecycleFailures(log, overwrite.Failures);
 
+                        if (timeShift != TimeSpan.Zero)
+                        {
+                            ReportTimeShiftSkips(log, overwrite.ExtractablePlans);
+                        }
+
                         summary = await _services.Extractor.ExtractAsync(
-                            overwrite.ExtractablePlans, sink, cts.Token);
+                            overwrite.ExtractablePlans, timeShift, sink, cts.Token);
                     }
                     finally
                     {
@@ -517,6 +523,17 @@ public sealed partial class MainWindow : Window
                 $"{failure.Stage} (0x{failure.HResult:X8}) after {failure.Attempts} attempt(s). " +
                 "This subtitle will be skipped.",
                 isError: true);
+        }
+    }
+
+    private static void ReportTimeShiftSkips(ActivityLog log, IReadOnlyList<OutputPlan> plans)
+    {
+        foreach (var plan in plans.Where(plan =>
+                     !plan.Extension.Equals(".srt", StringComparison.OrdinalIgnoreCase)))
+        {
+            log.Add(
+                "Time shift is only applied to SRT subtitles; " +
+                $"skipped '{Path.GetFileName(plan.FinalPath)}'.");
         }
     }
 

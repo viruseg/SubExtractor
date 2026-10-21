@@ -42,6 +42,8 @@ public sealed class AppServices
 
     public ActivityLog Log { get; }
 
+    public TimeSpan SubtitleTimeShift { get; set; }
+
     public FfmpegBootstrapper Bootstrapper { get; }
 
     private sealed class OffThreadProcessRunner(IProcessRunner inner) : IProcessRunner

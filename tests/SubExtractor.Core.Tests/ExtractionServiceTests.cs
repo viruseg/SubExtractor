@@ -19,7 +19,7 @@ public class ExtractionServiceTests
         var runner = new WritingProcessRunner("SUB");
 
         var summary = await new ExtractionService(runner, "ffmpeg.exe")
-            .ExtractAsync([plan], new RecordingExtractionSink(), CancellationToken.None);
+            .ExtractAsync([plan], TimeSpan.Zero, new RecordingExtractionSink(), CancellationToken.None);
 
         Assert.Equal(1, summary.Succeeded);
         Assert.Equal("SUB", File.ReadAllText(final));
@@ -38,7 +38,7 @@ public class ExtractionServiceTests
             final, ".srt", "srt", SubtitleWriteMode.Copy, true);
 
         await new ExtractionService(new WritingProcessRunner("NEW"), "ffmpeg.exe")
-            .ExtractAsync([plan], new RecordingExtractionSink(), CancellationToken.None);
+            .ExtractAsync([plan], TimeSpan.Zero, new RecordingExtractionSink(), CancellationToken.None);
 
         Assert.Equal("NEW", File.ReadAllText(final));
     }
@@ -55,7 +55,7 @@ public class ExtractionServiceTests
         var sink = new RecordingExtractionSink();
 
         var summary = await new ExtractionService(new WritingProcessRunner("NEW", 1), "ffmpeg.exe")
-            .ExtractAsync([plan], sink, CancellationToken.None);
+            .ExtractAsync([plan], TimeSpan.Zero, sink, CancellationToken.None);
 
         Assert.Equal(1, summary.Failed);
         Assert.Equal("OLD", File.ReadAllText(final));
@@ -73,7 +73,7 @@ public class ExtractionServiceTests
         var runner = new WritingProcessRunner("SUB");
 
         await new ExtractionService(runner, "ffmpeg.exe")
-            .ExtractAsync([plan], new RecordingExtractionSink(), CancellationToken.None);
+            .ExtractAsync([plan], TimeSpan.Zero, new RecordingExtractionSink(), CancellationToken.None);
 
         Assert.Contains("srt", runner.Calls[0]);
         Assert.DoesNotContain("copy", runner.Calls[0]);
@@ -93,7 +93,7 @@ public class ExtractionServiceTests
         using (var locked = new FileStream(final, FileMode.Open, FileAccess.Read, FileShare.None))
         {
             var summary = await new ExtractionService(new WritingProcessRunner("NEW"), "ffmpeg.exe")
-                .ExtractAsync([plan], sink, CancellationToken.None);
+                .ExtractAsync([plan], TimeSpan.Zero, sink, CancellationToken.None);
 
             Assert.Equal(1, summary.Failed);
             Assert.Single(sink.Failures);
@@ -122,7 +122,7 @@ public class ExtractionServiceTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => new ExtractionService(runner, "ffmpeg.exe")
-                .ExtractAsync(plans, new RecordingExtractionSink(), CancellationToken.None));
+                .ExtractAsync(plans, TimeSpan.Zero, new RecordingExtractionSink(), CancellationToken.None));
 
         Assert.Equal("OK", File.ReadAllText(firstFinal));
         Assert.Equal("OLD", File.ReadAllText(secondFinal));
@@ -144,7 +144,7 @@ public class ExtractionServiceTests
         var sink = new RecordingExtractionSink();
 
         await new ExtractionService(new WritingProcessRunner("SUB"), "ffmpeg.exe")
-            .ExtractAsync(plans, sink, CancellationToken.None);
+            .ExtractAsync(plans, TimeSpan.Zero, sink, CancellationToken.None);
 
         Assert.Equal([(1, 2, 1, 2), (2, 2, 2, 2)], sink.TrackProgress);
     }
@@ -167,7 +167,7 @@ public class ExtractionServiceTests
         var sink = new RecordingExtractionSink();
 
         var summary = await new ExtractionService(new FailThenSucceedRunner(), "ffmpeg.exe")
-            .ExtractAsync(plans, sink, CancellationToken.None);
+            .ExtractAsync(plans, TimeSpan.Zero, sink, CancellationToken.None);
 
         Assert.Equal(1, summary.Succeeded);
         Assert.Equal(1, summary.Failed);
@@ -185,6 +185,60 @@ public class ExtractionServiceTests
                 "FileFinished:Second.mkv",
             ],
             sink.Events);
+    }
+
+    [Fact]
+    public async Task Extract_applies_time_shift_to_srt()
+    {
+        using var temp = new TempDirectory();
+        var final = Path.Combine(temp.Path, "Movie.eng.srt");
+        var plan = new OutputPlan(
+            new SubtitleTrack(Path.Combine(temp.Path, "Movie.mkv"), 2, "subrip", null, "eng"),
+            final, ".srt", "srt", SubtitleWriteMode.Copy, false);
+        var runner = new WritingProcessRunner("1\n00:00:05,052 --> 00:00:06,251\nText\n");
+
+        var summary = await new ExtractionService(runner, "ffmpeg.exe")
+            .ExtractAsync([plan], TimeSpan.FromMilliseconds(1500), new RecordingExtractionSink(),
+                CancellationToken.None);
+
+        Assert.Equal(1, summary.Succeeded);
+        Assert.Equal("1\n00:00:06,552 --> 00:00:07,751\nText\n", File.ReadAllText(final));
+    }
+
+    [Fact]
+    public async Task Extract_applies_time_shift_to_srt_encoded_from_mov_text()
+    {
+        using var temp = new TempDirectory();
+        var final = Path.Combine(temp.Path, "Movie.eng.srt");
+        var plan = new OutputPlan(
+            new SubtitleTrack(Path.Combine(temp.Path, "Movie.mp4"), 2, "mov_text", null, "eng"),
+            final, ".srt", "srt", SubtitleWriteMode.EncodeSrt, false);
+        var runner = new WritingProcessRunner("1\n00:00:05,052 --> 00:00:06,251\nText\n");
+
+        await new ExtractionService(runner, "ffmpeg.exe")
+            .ExtractAsync([plan], TimeSpan.FromSeconds(1), new RecordingExtractionSink(),
+                CancellationToken.None);
+
+        Assert.Equal("1\n00:00:06,052 --> 00:00:07,251\nText\n", File.ReadAllText(final));
+    }
+
+    [Fact]
+    public async Task Extract_does_not_apply_time_shift_to_non_srt()
+    {
+        using var temp = new TempDirectory();
+        var final = Path.Combine(temp.Path, "Movie.eng.ass");
+        var plan = new OutputPlan(
+            new SubtitleTrack(Path.Combine(temp.Path, "Movie.mkv"), 2, "ass", null, "eng"),
+            final, ".ass", "ass", SubtitleWriteMode.Copy, false);
+        const string content = "1\n00:00:05,052 --> 00:00:06,251\nText\n";
+        var runner = new WritingProcessRunner(content);
+
+        var summary = await new ExtractionService(runner, "ffmpeg.exe")
+            .ExtractAsync([plan], TimeSpan.FromMilliseconds(1500), new RecordingExtractionSink(),
+                CancellationToken.None);
+
+        Assert.Equal(1, summary.Succeeded);
+        Assert.Equal(content, File.ReadAllText(final));
     }
 
     private sealed class WritingProcessRunner(string content, int exitCode = 0) : IProcessRunner

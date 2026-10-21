@@ -1,5 +1,6 @@
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using SubExtractor.Core.Ffmpeg;
 using SubExtractor.Services;
 using SubExtractor.ViewModels;
@@ -16,6 +17,8 @@ public sealed partial class SettingsWindow : Window
     private bool _checkStarted;
     private bool _isChecking;
     private bool _isUpdating;
+    private bool _shiftReady;
+    private bool _updatingShift;
     private string? _latestVersionDisplay;
 
     public SettingsWindow(AppServices services, Window owner)
@@ -23,10 +26,12 @@ public sealed partial class SettingsWindow : Window
         _services = services;
         ViewModel = new SettingsViewModel();
         InitializeComponent();
+        LoadTimeShift();
+        _shiftReady = true;
         WindowOwner.SetOwner(this, owner);
         AppWindow.SetIcon("Assets/AppIcon.ico");
         AppWindow.TitleBar.PreferredTheme = TitleBarTheme.Dark;
-        AppWindow.Resize(new SizeInt32(560, 300));
+        AppWindow.Resize(new SizeInt32(560, 380));
         WindowOwner.CenterOnOwner(this, owner);
 
         _services.Busy.Changed += Services_BusyChanged;
@@ -177,6 +182,107 @@ public sealed partial class SettingsWindow : Window
             ViewModel.ApplyUpdateProgress(progress);
         }
     }
+
+    private void ShiftSignBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_shiftReady)
+        {
+            UpdateTimeShift();
+        }
+    }
+
+    private void ShiftPart_BeforeTextChanging(TextBox sender, TextBoxBeforeTextChangingEventArgs args) =>
+        args.Cancel = args.NewText.Any(character => !char.IsAsciiDigit(character));
+
+    private void ShiftPart_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!_shiftReady || _updatingShift || sender is not TextBox box)
+        {
+            return;
+        }
+
+        UpdateTimeShift();
+
+        if (box.Text.Length == box.MaxLength)
+        {
+            MoveToNextShiftPart(box);
+        }
+    }
+
+    private void ShiftPart_GotFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox box)
+        {
+            box.SelectAll();
+        }
+    }
+
+    private void ShiftPart_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is not TextBox box)
+        {
+            return;
+        }
+
+        var value = ParseShiftPart(box);
+        if (box == ShiftMinutesBox || box == ShiftSecondsBox)
+        {
+            value = Math.Min(value, 59);
+        }
+
+        _updatingShift = true;
+        box.Text = value.ToString(box.MaxLength == 3 ? "000" : "00");
+        _updatingShift = false;
+
+        UpdateTimeShift();
+    }
+
+    private void MoveToNextShiftPart(TextBox box)
+    {
+        var next = box == ShiftHoursBox ? ShiftMinutesBox
+            : box == ShiftMinutesBox ? ShiftSecondsBox
+            : box == ShiftSecondsBox ? ShiftMillisecondsBox
+            : null;
+
+        next?.Focus(FocusState.Programmatic);
+    }
+
+    private void LoadTimeShift()
+    {
+        _updatingShift = true;
+
+        var shift = _services.SubtitleTimeShift;
+        ShiftSignBox.SelectedIndex = shift < TimeSpan.Zero ? 1 : 0;
+
+        var absolute = shift.Duration();
+        ShiftHoursBox.Text = ((long)absolute.TotalHours).ToString("00");
+        ShiftMinutesBox.Text = absolute.Minutes.ToString("00");
+        ShiftSecondsBox.Text = absolute.Seconds.ToString("00");
+        ShiftMillisecondsBox.Text = absolute.Milliseconds.ToString("000");
+
+        _updatingShift = false;
+    }
+
+    private void UpdateTimeShift()
+    {
+        if (_updatingShift)
+        {
+            return;
+        }
+
+        var sign = ShiftSignBox.SelectedIndex == 1 ? -1 : 1;
+        var shift = new TimeSpan(
+            0,
+            ParseShiftPart(ShiftHoursBox),
+            ParseShiftPart(ShiftMinutesBox),
+            ParseShiftPart(ShiftSecondsBox),
+            ParseShiftPart(ShiftMillisecondsBox));
+
+        _services.SubtitleTimeShift = sign < 0 ? shift.Negate() : shift;
+    }
+
+    private static int ParseShiftPart(TextBox box) =>
+        int.TryParse(box.Text, out var value) ? value : 0;
 
     private sealed class UpdateProgress(SettingsWindow window) : IProgress<FfmpegInstallProgress>
     {
