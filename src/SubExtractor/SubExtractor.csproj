@@ -34,6 +34,20 @@
     </ItemGroup>
   </Target>
 
+  <!-- WinUI ships localized MUI resources for every culture; keep only the English fallback. -->
+  <Target Name="KeepEnglishWinUIResources" AfterTargets="AddMicrosoftWindowsAppSDKPayloadFilesFromComponents">
+    <ItemGroup>
+      <_WinUIEnglishResource Include="@(None)"
+                             Condition="'%(None.Extension)' == '.mui' and '%(None.Link)' == 'en-us\%(None.Filename)%(None.Extension)'" />
+      <_WinUINonEnglishResource Include="@(None)"
+                                Exclude="@(_WinUIEnglishResource)"
+                                Condition="'%(None.Extension)' == '.mui'" />
+      <None Remove="@(_WinUINonEnglishResource)" />
+      <_WinUIEnglishResource Remove="@(_WinUIEnglishResource)" />
+      <_WinUINonEnglishResource Remove="@(_WinUINonEnglishResource)" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
