@@ -48,6 +48,15 @@
     </ItemGroup>
   </Target>
 
+  <!-- Rider 2026.x shows the self-contained WindowsAppSDK payload in Solution view (RIDER-139070); hide it. -->
+  <Target Name="HideWindowsAppSdkSelfContainedPayload" AfterTargets="AddMicrosoftWindowsAppSDKPayloadFilesFromComponents">
+    <ItemGroup>
+      <None Update="@(None)" Condition="'%(None.Link)' != ''">
+        <Visible>false</Visible>
+      </None>
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
