@@ -65,4 +65,8 @@
   <ItemGroup>
     <ProjectReference Include="..\SubExtractor.Core\SubExtractor.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="18.12.1" PrivateAssets="all" />
+  </ItemGroup>
 </Project>
