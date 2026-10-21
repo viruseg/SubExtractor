@@ -35,6 +35,7 @@ public sealed partial class SettingsWindow : Window
         WindowOwner.CenterOnOwner(this, owner);
 
         _services.Busy.Changed += Services_BusyChanged;
+        _services.TimeShift.Changed += TimeShift_Changed;
         SettingsRoot.Loaded += SettingsWindow_Loaded;
         AppWindow.Closing += SettingsWindow_Closing;
         Closed += SettingsWindow_Closed;
@@ -64,8 +65,19 @@ public sealed partial class SettingsWindow : Window
         }
     }
 
-    private void SettingsWindow_Closed(object sender, WindowEventArgs args) =>
+    private void SettingsWindow_Closed(object sender, WindowEventArgs args)
+    {
         _services.Busy.Changed -= Services_BusyChanged;
+        _services.TimeShift.Changed -= TimeShift_Changed;
+    }
+
+    private void TimeShift_Changed(object? sender, EventArgs e)
+    {
+        if (!_updatingShift)
+        {
+            LoadTimeShift();
+        }
+    }
 
     private void RetryButton_Click(object sender, RoutedEventArgs e) => _ = CheckVersionsAsync();
 
@@ -251,7 +263,14 @@ public sealed partial class SettingsWindow : Window
     {
         _updatingShift = true;
 
-        var shift = _services.SubtitleTimeShift;
+        var hasFolder = _services.TimeShift.Folder is not null;
+        ShiftSignBox.IsEnabled = hasFolder;
+        ShiftHoursBox.IsEnabled = hasFolder;
+        ShiftMinutesBox.IsEnabled = hasFolder;
+        ShiftSecondsBox.IsEnabled = hasFolder;
+        ShiftMillisecondsBox.IsEnabled = hasFolder;
+
+        var shift = _services.TimeShift.Shift;
         ShiftSignBox.SelectedIndex = shift < TimeSpan.Zero ? 1 : 0;
 
         var absolute = shift.Duration();
@@ -278,7 +297,9 @@ public sealed partial class SettingsWindow : Window
             ParseShiftPart(ShiftSecondsBox),
             ParseShiftPart(ShiftMillisecondsBox));
 
-        _services.SubtitleTimeShift = sign < 0 ? shift.Negate() : shift;
+        _updatingShift = true;
+        _services.TimeShift.SetShift(sign < 0 ? shift.Negate() : shift);
+        _updatingShift = false;
     }
 
     private static int ParseShiftPart(TextBox box) =>

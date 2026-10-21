@@ -287,6 +287,7 @@ public sealed partial class MainWindow : Window
 
             if (path.Length == 0)
             {
+                SetCurrentFolder(null);
                 ClearResults("Choose a folder to scan.");
                 return;
             }
@@ -294,6 +295,7 @@ public sealed partial class MainWindow : Window
             if (!Directory.Exists(path))
             {
                 FolderBox.Text = string.Empty;
+                SetCurrentFolder(null);
                 ClearResults("Choose a folder to scan.");
                 _ = FlashRedAsync();
                 FolderBox.Focus(FocusState.Programmatic);
@@ -317,7 +319,7 @@ public sealed partial class MainWindow : Window
         }
 
         ClearResults(string.Empty);
-        _currentFolder = folder;
+        SetCurrentFolder(folder);
 
         using var busy = _services.Busy.Begin();
 
@@ -400,7 +402,7 @@ public sealed partial class MainWindow : Window
 
         _isExtracting = true;
         var log = _services.Log;
-        var timeShift = _services.SubtitleTimeShift;
+        var timeShift = _services.TimeShift.Shift;
         var started = false;
         try
         {
@@ -541,6 +543,12 @@ public sealed partial class MainWindow : Window
     {
         ViewModel.SetVideos([]);
         ViewModel.EmptyStateText = emptyStateText;
+    }
+
+    private void SetCurrentFolder(string? folder)
+    {
+        _currentFolder = folder;
+        _services.TimeShift.SelectFolder(folder);
     }
 
     private void ColumnHeaderCheckBox_Click(object sender, RoutedEventArgs e)

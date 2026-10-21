@@ -23,6 +23,9 @@ public sealed class AppServices
         Busy = new AppBusyState();
         Operations = new OperationCoordinator();
         Log = new ActivityLog();
+        TimeShift = new FolderTimeShift(new SubtitleShiftStore(DataDirectory));
+        TimeShift.PersistenceFailed += (_, exception) =>
+            Log.Add($"Couldn't access saved subtitle time shifts: {exception.Message}", isError: true);
         Bootstrapper = new FfmpegBootstrapper(Ffmpeg, Busy, Operations, Log);
     }
 
@@ -42,7 +45,7 @@ public sealed class AppServices
 
     public ActivityLog Log { get; }
 
-    public TimeSpan SubtitleTimeShift { get; set; }
+    public FolderTimeShift TimeShift { get; }
 
     public FfmpegBootstrapper Bootstrapper { get; }
 
