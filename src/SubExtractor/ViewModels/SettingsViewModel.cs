@@ -8,11 +8,9 @@ namespace SubExtractor.ViewModels;
 public sealed class SettingsViewModel : INotifyPropertyChanged
 {
     private string _versionText = string.Empty;
-    private string _statusText = "Checking for updates...";
     private string _updateButtonText = "Update";
     private double _updateProgressValue;
     private bool _updateProgressIndeterminate;
-    private Visibility _retryVisibility = Visibility.Collapsed;
     private Visibility _updateVisibility = Visibility.Collapsed;
     private Visibility _updateProgressVisibility = Visibility.Collapsed;
 
@@ -22,12 +20,6 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         get => _versionText;
         private set => Set(ref _versionText, value);
-    }
-
-    public string StatusText
-    {
-        get => _statusText;
-        private set => Set(ref _statusText, value);
     }
 
     public string UpdateButtonText
@@ -48,12 +40,6 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         private set => Set(ref _updateProgressIndeterminate, value);
     }
 
-    public Visibility RetryVisibility
-    {
-        get => _retryVisibility;
-        private set => Set(ref _retryVisibility, value);
-    }
-
     public Visibility UpdateVisibility
     {
         get => _updateVisibility;
@@ -68,52 +54,22 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public void BeginCheck()
     {
-        StatusText = "Checking for updates...";
-        RetryVisibility = Visibility.Collapsed;
         UpdateVisibility = Visibility.Collapsed;
         ResetUpdateButton();
     }
 
-    public void SetVersion(string display) =>
-        VersionText = display.Length == 0 ? "Not installed" : display;
+    public void SetVersion(string display) => VersionText = display;
+
+    public void ShowVersionError() => VersionText = "Error";
 
     public void ShowUpdateAvailable()
     {
-        StatusText = string.Empty;
-        RetryVisibility = Visibility.Collapsed;
         UpdateVisibility = Visibility.Visible;
-        ResetUpdateButton();
-    }
-
-    public void ShowUpToDate()
-    {
-        StatusText = "Up to date";
-        RetryVisibility = Visibility.Collapsed;
-        UpdateVisibility = Visibility.Collapsed;
-        ResetUpdateButton();
-    }
-
-    public void ShowCannotCompare()
-    {
-        StatusText = "Can't compare ffmpeg versions";
-        RetryVisibility = Visibility.Collapsed;
-        UpdateVisibility = Visibility.Collapsed;
-        ResetUpdateButton();
-    }
-
-    public void ShowCheckFailed()
-    {
-        StatusText = "Couldn't check for updates";
-        RetryVisibility = Visibility.Visible;
-        UpdateVisibility = Visibility.Collapsed;
         ResetUpdateButton();
     }
 
     public void BeginUpdate()
     {
-        StatusText = string.Empty;
-        RetryVisibility = Visibility.Collapsed;
-        UpdateVisibility = Visibility.Visible;
         UpdateButtonText = "Downloading...";
         UpdateProgressValue = 0;
         UpdateProgressIndeterminate = true;
@@ -171,15 +127,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public void ShowUpdateSucceeded(string display)
     {
         SetVersion(display);
-        StatusText = "Up to date";
-        RetryVisibility = Visibility.Collapsed;
         UpdateVisibility = Visibility.Collapsed;
         ResetUpdateButton();
     }
 
-    public void ShowUpdateFailed(string message)
+    public void ShowUpdateFailed()
     {
-        StatusText = $"Update failed: {message}";
         UpdateVisibility = Visibility.Visible;
         ResetUpdateButton();
     }

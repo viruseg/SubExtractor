@@ -31,7 +31,7 @@ public sealed partial class SettingsWindow : Window
         WindowOwner.SetOwner(this, owner);
         AppWindow.SetIcon("Assets/AppIcon.ico");
         AppWindow.TitleBar.PreferredTheme = TitleBarTheme.Dark;
-        AppWindow.Resize(new SizeInt32(560, 380));
+        AppWindow.Resize(new SizeInt32(560, 180));
         WindowOwner.CenterOnOwner(this, owner);
 
         _services.Busy.Changed += Services_BusyChanged;
@@ -79,8 +79,6 @@ public sealed partial class SettingsWindow : Window
         }
     }
 
-    private void RetryButton_Click(object sender, RoutedEventArgs e) => _ = CheckVersionsAsync();
-
     private async Task CheckVersionsAsync()
     {
         if (_isChecking || _isUpdating)
@@ -96,24 +94,46 @@ public sealed partial class SettingsWindow : Window
             var manager = _services.Ffmpeg;
 
             string? localOutput;
-            using (var localCts = new CancellationTokenSource(LocalVersionTimeout))
+            try
             {
+                using var localCts = new CancellationTokenSource(LocalVersionTimeout);
                 localOutput = await manager.ReadLocalVersionAsync(localCts.Token);
+            }
+            catch (Exception ex)
+            {
+                ViewModel.ShowVersionError();
+                _services.Log.Add($"Couldn't read the local ffmpeg version: {ex.Message}", isError: true);
+                return;
             }
 
             var localVersion = FfmpegVersionParser.Parse(localOutput ?? "");
+            if (localVersion.Display.Length == 0)
+            {
+                ViewModel.ShowVersionError();
+                _services.Log.Add("Couldn't read the local ffmpeg version.", isError: true);
+                return;
+            }
+
             ViewModel.SetVersion(localVersion.Display);
 
             string remoteVersion;
-            using (var remoteCts = new CancellationTokenSource(RemoteVersionTimeout))
+            try
             {
+                using var remoteCts = new CancellationTokenSource(RemoteVersionTimeout);
                 remoteVersion = await manager.GetLatestVersionAsync(remoteCts.Token);
+            }
+            catch (Exception ex)
+            {
+                _services.Log.Add($"Couldn't check for ffmpeg updates: {ex.Message}", isError: true);
+                return;
             }
 
             var remoteNumeric = VersionComparison.ParseNumeric(remoteVersion);
             if (localVersion.Numeric is null || remoteNumeric is null)
             {
-                ViewModel.ShowCannotCompare();
+                _services.Log.Add(
+                    $"Couldn't compare ffmpeg versions: local '{localVersion.Display}', server '{remoteVersion}'.",
+                    isError: true);
                 return;
             }
 
@@ -123,14 +143,10 @@ public sealed partial class SettingsWindow : Window
             {
                 ViewModel.ShowUpdateAvailable();
             }
-            else
-            {
-                ViewModel.ShowUpToDate();
-            }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            ViewModel.ShowCheckFailed();
+            _services.Log.Add($"Couldn't check for ffmpeg updates: {ex.Message}", isError: true);
         }
         finally
         {
@@ -167,17 +183,27 @@ public sealed partial class SettingsWindow : Window
                 {
                     display = parsed.Display;
                 }
+                else
+                {
+                    _services.Log.Add(
+                        "Couldn't read the local ffmpeg version after updating.",
+                        isError: true);
+                }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 // NOTE: The install already succeeded; a failed version re-read must not report an update failure.
+                _services.Log.Add(
+                    $"Couldn't read the local ffmpeg version after updating: {ex.Message}",
+                    isError: true);
             }
 
             ViewModel.ShowUpdateSucceeded(display);
         }
         catch (Exception ex)
         {
-            ViewModel.ShowUpdateFailed(ex.Message);
+            _services.Log.Add($"Couldn't update ffmpeg: {ex.Message}", isError: true);
+            ViewModel.ShowUpdateFailed();
         }
         finally
         {

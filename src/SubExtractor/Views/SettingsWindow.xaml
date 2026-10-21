@@ -5,112 +5,38 @@
     Title="Settings">
     <Grid x:Name="SettingsRoot"
           Padding="28,24,28,24"
-          RowSpacing="12"
+          ColumnSpacing="16"
+          RowSpacing="24"
           Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Grid ColumnSpacing="16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <TextBlock Text="FFmpeg version"
-                       VerticalAlignment="Center"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            <TextBlock Grid.Column="1"
-                       Text="{x:Bind ViewModel.VersionText, Mode=OneWay}"
+        <TextBlock Text="FFmpeg version"
+                   VerticalAlignment="Center"
+                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="16"
+                    MinHeight="32"
+                    VerticalAlignment="Center">
+            <TextBlock Text="{x:Bind ViewModel.VersionText, Mode=OneWay}"
                        VerticalAlignment="Center"
                        TextTrimming="CharacterEllipsis" />
-        </Grid>
-
-        <TextBlock Grid.Row="1"
-                   Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-                   TextWrapping="Wrap"
-                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-
-        <StackPanel Grid.Row="2" Spacing="6">
-            <TextBlock Text="Subtitle time shift"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            <StackPanel Orientation="Horizontal" Spacing="4">
-                <ComboBox x:Name="ShiftSignBox"
-                          Width="60"
-                          SelectedIndex="0"
-                          AutomationProperties.Name="Time shift sign"
-                          SelectionChanged="ShiftSignBox_SelectionChanged">
-                    <ComboBoxItem Content="+" />
-                    <ComboBoxItem Content="-" />
-                </ComboBox>
-                <TextBox x:Name="ShiftHoursBox"
-                         Width="44"
-                         MaxLength="2"
-                         Text="00"
-                         TextAlignment="Center"
-                         VerticalAlignment="Center"
-                         AutomationProperties.Name="Time shift hours"
-                         BeforeTextChanging="ShiftPart_BeforeTextChanging"
-                         TextChanged="ShiftPart_TextChanged"
-                         GotFocus="ShiftPart_GotFocus"
-                         LostFocus="ShiftPart_LostFocus" />
-                <TextBlock Text=":" VerticalAlignment="Center" />
-                <TextBox x:Name="ShiftMinutesBox"
-                         Width="44"
-                         MaxLength="2"
-                         Text="00"
-                         TextAlignment="Center"
-                         VerticalAlignment="Center"
-                         AutomationProperties.Name="Time shift minutes"
-                         BeforeTextChanging="ShiftPart_BeforeTextChanging"
-                         TextChanged="ShiftPart_TextChanged"
-                         GotFocus="ShiftPart_GotFocus"
-                         LostFocus="ShiftPart_LostFocus" />
-                <TextBlock Text=":" VerticalAlignment="Center" />
-                <TextBox x:Name="ShiftSecondsBox"
-                         Width="44"
-                         MaxLength="2"
-                         Text="00"
-                         TextAlignment="Center"
-                         VerticalAlignment="Center"
-                         AutomationProperties.Name="Time shift seconds"
-                         BeforeTextChanging="ShiftPart_BeforeTextChanging"
-                         TextChanged="ShiftPart_TextChanged"
-                         GotFocus="ShiftPart_GotFocus"
-                         LostFocus="ShiftPart_LostFocus" />
-                <TextBlock Text="," VerticalAlignment="Center" />
-                <TextBox x:Name="ShiftMillisecondsBox"
-                         Width="56"
-                         MaxLength="3"
-                         Text="000"
-                         TextAlignment="Center"
-                         VerticalAlignment="Center"
-                         AutomationProperties.Name="Time shift milliseconds"
-                         BeforeTextChanging="ShiftPart_BeforeTextChanging"
-                         TextChanged="ShiftPart_TextChanged"
-                         GotFocus="ShiftPart_GotFocus"
-                         LostFocus="ShiftPart_LostFocus" />
-            </StackPanel>
-        </StackPanel>
-
-        <StackPanel Grid.Row="4"
-                    Orientation="Horizontal"
-                    Spacing="8"
-                    HorizontalAlignment="Right">
-            <Button x:Name="RetryButton"
-                    Content="Retry"
-                    Visibility="{x:Bind ViewModel.RetryVisibility, Mode=OneWay}"
-                    Click="RetryButton_Click" />
             <Button x:Name="UpdateButton"
                     MinWidth="132"
+                    Height="32"
+                    Padding="0"
+                    VerticalAlignment="Center"
                     Visibility="{x:Bind ViewModel.UpdateVisibility, Mode=OneWay}"
                     AutomationProperties.Name="{x:Bind ViewModel.UpdateButtonText, Mode=OneWay}"
                     Click="UpdateButton_Click">
-                <Grid MinWidth="112" Height="32">
+                <Grid MinWidth="112">
                     <ProgressBar x:Name="UpdateProgressBar"
                                  Height="8"
                                  VerticalAlignment="Center"
@@ -123,6 +49,71 @@
                                VerticalAlignment="Center" />
                 </Grid>
             </Button>
+        </StackPanel>
+
+        <TextBlock Grid.Row="1"
+                   Text="Subtitle time shift"
+                   VerticalAlignment="Center"
+                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        <StackPanel Grid.Row="1"
+                    Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="4">
+            <ComboBox x:Name="ShiftSignBox"
+                      Width="60"
+                      SelectedIndex="0"
+                      AutomationProperties.Name="Time shift sign"
+                      SelectionChanged="ShiftSignBox_SelectionChanged">
+                <ComboBoxItem Content="+" />
+                <ComboBoxItem Content="-" />
+            </ComboBox>
+            <TextBox x:Name="ShiftHoursBox"
+                     Width="44"
+                     MaxLength="2"
+                     Text="00"
+                     TextAlignment="Center"
+                     VerticalAlignment="Center"
+                     AutomationProperties.Name="Time shift hours"
+                     BeforeTextChanging="ShiftPart_BeforeTextChanging"
+                     TextChanged="ShiftPart_TextChanged"
+                     GotFocus="ShiftPart_GotFocus"
+                     LostFocus="ShiftPart_LostFocus" />
+            <TextBlock Text=":" VerticalAlignment="Center" />
+            <TextBox x:Name="ShiftMinutesBox"
+                     Width="44"
+                     MaxLength="2"
+                     Text="00"
+                     TextAlignment="Center"
+                     VerticalAlignment="Center"
+                     AutomationProperties.Name="Time shift minutes"
+                     BeforeTextChanging="ShiftPart_BeforeTextChanging"
+                     TextChanged="ShiftPart_TextChanged"
+                     GotFocus="ShiftPart_GotFocus"
+                     LostFocus="ShiftPart_LostFocus" />
+            <TextBlock Text=":" VerticalAlignment="Center" />
+            <TextBox x:Name="ShiftSecondsBox"
+                     Width="44"
+                     MaxLength="2"
+                     Text="00"
+                     TextAlignment="Center"
+                     VerticalAlignment="Center"
+                     AutomationProperties.Name="Time shift seconds"
+                     BeforeTextChanging="ShiftPart_BeforeTextChanging"
+                     TextChanged="ShiftPart_TextChanged"
+                     GotFocus="ShiftPart_GotFocus"
+                     LostFocus="ShiftPart_LostFocus" />
+            <TextBlock Text="," VerticalAlignment="Center" />
+            <TextBox x:Name="ShiftMillisecondsBox"
+                     Width="56"
+                     MaxLength="3"
+                     Text="000"
+                     TextAlignment="Center"
+                     VerticalAlignment="Center"
+                     AutomationProperties.Name="Time shift milliseconds"
+                     BeforeTextChanging="ShiftPart_BeforeTextChanging"
+                     TextChanged="ShiftPart_TextChanged"
+                     GotFocus="ShiftPart_GotFocus"
+                     LostFocus="ShiftPart_LostFocus" />
         </StackPanel>
     </Grid>
 </Window>
