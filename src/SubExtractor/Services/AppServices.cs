@@ -19,7 +19,7 @@ public sealed class AppServices
         Ffmpeg = new FfmpegManager(DataDirectory, downloader, processRunner);
         Scanner = new ScanService(new FfprobeService(processRunner, Ffmpeg.FfprobePath));
         Extractor = new ExtractionService(processRunner, Ffmpeg.FfmpegPath);
-        OverwriteRecycler = new OverwriteRecycler(new RecycleBinFileRecycler());
+        OverwriteRecycler = new OverwriteRecycler(new FileRecycler());
         Busy = new AppBusyState();
         Operations = new OperationCoordinator();
         Log = new ActivityLog();
