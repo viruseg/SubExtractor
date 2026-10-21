@@ -429,7 +429,11 @@ public sealed partial class MainWindow : Window
                     log.CancelRequested += cancelHandler;
                     try
                     {
-                        summary = await _services.Extractor.ExtractAsync(plans, sink, cts.Token);
+                        var overwrite = await _services.OverwriteRecycler.RecycleAsync(plans, cts.Token);
+                        ReportRecycleFailures(log, overwrite.Failures);
+
+                        summary = await _services.Extractor.ExtractAsync(
+                            overwrite.ExtractablePlans, sink, cts.Token);
                     }
                     finally
                     {
@@ -479,7 +483,7 @@ public sealed partial class MainWindow : Window
         var content = new StackPanel { Spacing = 6 };
         content.Children.Add(new TextBlock
         {
-            Text = "The following subtitle files already exist and will be overwritten:",
+            Text = "The following subtitle files already exist and will be moved to the Recycle Bin:",
             TextWrapping = TextWrapping.Wrap,
         });
 
@@ -495,13 +499,25 @@ public sealed partial class MainWindow : Window
         var dialog = new ContentDialog
         {
             XamlRoot = xamlRoot,
-            Title = "Overwrite subtitles?",
+            Title = "Replace subtitles?",
             Content = content,
-            PrimaryButtonText = "Overwrite",
+            PrimaryButtonText = "Replace",
             CloseButtonText = "Cancel",
         };
 
         return await dialog.ShowAsync() == ContentDialogResult.Primary;
+    }
+
+    private static void ReportRecycleFailures(ActivityLog log, IReadOnlyList<FileRecycleFailure> failures)
+    {
+        foreach (var failure in failures)
+        {
+            log.Add(
+                $"Could not move '{Path.GetFileName(failure.Path)}' to the Recycle Bin: " +
+                $"{failure.Stage} (0x{failure.HResult:X8}) after {failure.Attempts} attempt(s). " +
+                "This subtitle will be skipped.",
+                isError: true);
+        }
     }
 
     private void ClearResults(string emptyStateText)

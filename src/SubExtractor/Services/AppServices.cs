@@ -19,6 +19,7 @@ public sealed class AppServices
         Ffmpeg = new FfmpegManager(DataDirectory, downloader, processRunner);
         Scanner = new ScanService(new FfprobeService(processRunner, Ffmpeg.FfprobePath));
         Extractor = new ExtractionService(processRunner, Ffmpeg.FfmpegPath);
+        OverwriteRecycler = new OverwriteRecycler(new RecycleBinFileRecycler());
         Busy = new AppBusyState();
         Operations = new OperationCoordinator();
         Log = new ActivityLog();
@@ -32,6 +33,8 @@ public sealed class AppServices
     public ScanService Scanner { get; }
 
     public ExtractionService Extractor { get; }
+
+    public OverwriteRecycler OverwriteRecycler { get; }
 
     public AppBusyState Busy { get; }
 
