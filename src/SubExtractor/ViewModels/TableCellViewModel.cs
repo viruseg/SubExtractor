@@ -14,7 +14,6 @@ public enum TableCellKind
 public enum FileStatus
 {
     None,
-    NoSubtitles,
     ProbeFailed,
 }
 
@@ -109,19 +108,11 @@ public sealed class TableCellViewModel : INotifyPropertyChanged
     public Visibility FormatChipVisibility =>
         HasTrack ? Visibility.Visible : Visibility.Collapsed;
 
-    public Visibility NoSubtitlesVisibility =>
-        Status == FileStatus.NoSubtitles ? Visibility.Visible : Visibility.Collapsed;
-
     public Visibility ProbeFailedVisibility =>
         Status == FileStatus.ProbeFailed ? Visibility.Visible : Visibility.Collapsed;
 
     public string StatusText =>
-        Status switch
-        {
-            FileStatus.NoSubtitles => "No subtitles",
-            FileStatus.ProbeFailed => "Probe failed",
-            _ => string.Empty,
-        };
+        Status == FileStatus.ProbeFailed ? "Probe failed" : string.Empty;
 
     public Visibility TrackCellVisibility =>
         Kind == TableCellKind.Subtitle ? Visibility.Visible : Visibility.Collapsed;

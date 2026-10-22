@@ -254,11 +254,6 @@
                                                                                        ToolTipService.ToolTip="{x:Bind FileName}" />
                                                                             <TextBlock Grid.Column="1"
                                                                                        Text="{x:Bind StatusText}"
-                                                                                       Style="{StaticResource TableStatusStyle}"
-                                                                                       Margin="8,0,0,0"
-                                                                                       Visibility="{x:Bind NoSubtitlesVisibility, Mode=OneWay}" />
-                                                                            <TextBlock Grid.Column="1"
-                                                                                       Text="{x:Bind StatusText}"
                                                                                        Style="{StaticResource TableCriticalStatusStyle}"
                                                                                        Margin="8,0,0,0"
                                                                                        Visibility="{x:Bind ProbeFailedVisibility, Mode=OneWay}" />

@@ -62,7 +62,7 @@ public class ColumnWidthPolicyTests
 
     [Fact]
     public void MeasureFileCell_adds_the_status_next_to_the_name()
-        => Assert.Equal(165.4, ColumnWidthPolicy.MeasureFileCell("movie.mkv", "No subtitles"), 2);
+        => Assert.Equal(165.4, ColumnWidthPolicy.MeasureFileCell("movie.mkv", "Probe failed"), 2);
 
     [Fact]
     public void MeasureFileCell_never_shrinks_as_the_name_grows()

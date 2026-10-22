@@ -121,9 +121,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             var status = video.Status == ProbeStatus.Failed
                 ? FileStatus.ProbeFailed
-                : video.Tracks.Count == 0
-                    ? FileStatus.NoSubtitles
-                    : FileStatus.None;
+                : FileStatus.None;
 
             var cells = new List<TableCellViewModel>(subtitleColumns.Count + 1)
             {
