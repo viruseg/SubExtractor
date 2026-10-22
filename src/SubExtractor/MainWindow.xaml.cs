@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Media;
 using SubExtractor.Core.Extraction;
 using SubExtractor.Core.Formatting;
 using SubExtractor.Core.Models;
+using SubExtractor.Core.Scanning;
 using SubExtractor.Services;
 using SubExtractor.ViewModels;
 using SubExtractor.Views;
@@ -427,7 +428,7 @@ public sealed partial class MainWindow : Window
 
         var log = _services.Log;
         log.BeginOperation("Scanning");
-        log.Add($"Scan started: {Path.GetFullPath(folder)}");
+        log.Add(ScanReportBuilder.StartedText(folder));
         log.SetProgress(0);
 
         try
@@ -462,26 +463,27 @@ public sealed partial class MainWindow : Window
                 return;
             }
 
-            if (result.FolderError is not null)
+            var report = ScanReportBuilder.Build(result);
+
+            if (report.FolderFailed)
             {
-                ClearResults("Couldn't read this folder.");
+                ClearResults(report.EmptyStateText ?? string.Empty);
                 await sink.FlushAsync();
-                log.Add("Scan finished: 0 files, 0 subtitle tracks");
+                log.Add(report.SummaryText);
                 return;
             }
 
             ViewModel.SetVideos(result.Videos);
             UpdateFileContentWidth();
             UpdateFileColumnWidth();
-            var trackCount = result.Videos.Sum(video => video.Tracks.Count);
 
-            if (result.Videos.Count == 0)
+            if (report.EmptyStateText is not null)
             {
-                ViewModel.EmptyStateText = "No video files found in this folder.";
+                ViewModel.EmptyStateText = report.EmptyStateText;
             }
 
             await sink.FlushAsync();
-            log.Add($"Scan finished: {result.Videos.Count} files, {trackCount} subtitle tracks");
+            log.Add(report.SummaryText);
         }
         finally
         {
