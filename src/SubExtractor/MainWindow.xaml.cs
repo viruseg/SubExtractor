@@ -615,7 +615,7 @@ public sealed partial class MainWindow : Window
             using var busy = _services.Busy.Begin();
 
             var plans = OutputPlanner.Plan(folder, tracks, File.Exists);
-            if (plans.Any(plan => plan.OverwritesExisting) &&
+            if (ExtractionReport.HasOverwrites(plans) &&
                 !await ConfirmOverwriteAsync(plans))
             {
                 return;
@@ -640,15 +640,17 @@ public sealed partial class MainWindow : Window
                     try
                     {
                         var overwrite = await _services.OverwriteRecycler.RecycleAsync(plans, cts.Token);
-                        ReportRecycleFailures(log, overwrite.Failures);
-
-                        if (timeShift != TimeSpan.Zero || textRemovalRules.Count > 0)
+                        foreach (var message in ExtractionReport.RecycleFailureMessages(overwrite.Failures))
                         {
-                            ReportSrtOnlySkips(
-                                log,
-                                overwrite.ExtractablePlans,
-                                timeShift != TimeSpan.Zero,
-                                textRemovalRules.Count > 0);
+                            log.Add(message, isError: true);
+                        }
+
+                        foreach (var message in ExtractionReport.SrtOnlySkipMessages(
+                                     overwrite.ExtractablePlans,
+                                     timeShift != TimeSpan.Zero,
+                                     textRemovalRules.Count > 0))
+                        {
+                            log.Add(message);
                         }
 
                         summary = await _services.Extractor.ExtractAsync(
@@ -675,7 +677,7 @@ public sealed partial class MainWindow : Window
             }
 
             await sink.FlushAsync();
-            log.Add($"Extraction finished: {summary.Succeeded} succeeded, {summary.Failed} failed.");
+            log.Add(ExtractionReport.SummaryText(summary));
         }
         catch (Exception ex)
         {
@@ -727,40 +729,6 @@ public sealed partial class MainWindow : Window
         };
 
         return await dialog.ShowAsync() == ContentDialogResult.Primary;
-    }
-
-    private static void ReportRecycleFailures(ActivityLog log, IReadOnlyList<FileRecycleFailure> failures)
-    {
-        foreach (var failure in failures)
-        {
-            log.Add(
-                $"Could not move '{Path.GetFileName(failure.Path)}' to the Recycle Bin: " +
-                $"{failure.Stage} (0x{failure.HResult:X8}) after {failure.Attempts} attempt(s). " +
-                "This subtitle will be skipped.",
-                isError: true);
-        }
-    }
-
-    private static void ReportSrtOnlySkips(
-        ActivityLog log,
-        IReadOnlyList<OutputPlan> plans,
-        bool appliesTimeShift,
-        bool appliesTextRemoval)
-    {
-        var operations = (appliesTimeShift, appliesTextRemoval) switch
-        {
-            (true, true) => "Time shift and text removal are",
-            (true, false) => "Time shift is",
-            _ => "Text removal is",
-        };
-
-        foreach (var plan in plans.Where(plan =>
-                     !plan.Extension.Equals(".srt", StringComparison.OrdinalIgnoreCase)))
-        {
-            log.Add(
-                $"{operations} only applied to SRT subtitles; " +
-                $"skipped '{Path.GetFileName(plan.FinalPath)}'.");
-        }
     }
 
     private void ClearResults(string emptyStateText)
