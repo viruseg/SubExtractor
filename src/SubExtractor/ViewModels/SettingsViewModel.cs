@@ -121,6 +121,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 UpdateProgressVisibility = Visibility.Visible;
                 UpdateButtonText = "100%";
                 break;
+
+            default:
+                throw new ArgumentOutOfRangeException(
+                    nameof(progress.Stage), progress.Stage, "Unknown ffmpeg install stage.");
         }
     }
 

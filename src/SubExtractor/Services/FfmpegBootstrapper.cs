@@ -179,6 +179,10 @@ public sealed class FfmpegBootstrapper
                 case FfmpegInstallStage.Done:
                     log.SetProgress(100);
                     break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(value.Stage), value.Stage, "Unknown ffmpeg install stage.");
             }
         }
     }

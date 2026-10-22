@@ -53,7 +53,7 @@ public sealed class FfmpegHealthCheckTests
         Assert.False(await FfmpegHealthCheck.IsUsableAsync(manager));
     }
 
-    [Fact]
+    [WindowsFact]
     public async Task IsUsableAsync_returns_true_when_both_versions_are_readable()
     {
         using var temp = new TempDirectory();
@@ -69,6 +69,27 @@ public sealed class FfmpegHealthCheckTests
             new FakeProcessRunner(new ProcessResult(0, "ffmpeg version 9.0.2", "")));
 
         Assert.True(await FfmpegHealthCheck.IsUsableAsync(manager));
+    }
+
+    [WindowsFact]
+    public async Task IsUsableAsync_returns_false_when_one_version_read_fails()
+    {
+        using var temp = new TempDirectory();
+        var directory = Path.Combine(temp.Path, "ffmpeg");
+        Directory.CreateDirectory(directory);
+        var pe = Environment.ProcessPath
+            ?? typeof(FfmpegHealthCheckTests).Assembly.Location;
+        File.Copy(pe, Path.Combine(directory, "ffmpeg.exe"));
+        File.Copy(pe, Path.Combine(directory, "ffprobe.exe"));
+        var manager = new FfmpegManager(
+            temp.Path,
+            new StubDownloader(),
+            new FakeProcessRunner((path, _, _) =>
+                path.EndsWith("ffprobe.exe", StringComparison.OrdinalIgnoreCase)
+                    ? new ProcessResult(1, "", "failed")
+                    : new ProcessResult(0, "ffmpeg version 9.0.2", "")));
+
+        Assert.False(await FfmpegHealthCheck.IsUsableAsync(manager));
     }
 
     private sealed class StubDownloader : IFfmpegDownloader
