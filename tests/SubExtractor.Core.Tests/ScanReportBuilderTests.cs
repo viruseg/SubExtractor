@@ -35,6 +35,8 @@ public sealed class ScanReportBuilderTests
             new ScanResult([Video("a.mkv", 2)], "Access denied"));
 
         Assert.True(report.FolderFailed);
+        Assert.Equal(0, report.FileCount);
+        Assert.Equal(0, report.TrackCount);
         Assert.Equal("Scan finished: 0 files, 0 subtitle tracks", report.SummaryText);
         Assert.Equal("Couldn't read this folder.", report.EmptyStateText);
     }
@@ -59,6 +61,17 @@ public sealed class ScanReportBuilderTests
         var folder = Path.Combine(temp.Path, "Videos");
 
         Assert.Equal($"Scan started: {folder}", ScanReportBuilder.StartedText(folder));
+    }
+
+    [Fact]
+    public void StartedText_resolves_relative_segments()
+    {
+        using var temp = new TempDirectory();
+        var folder = Path.Combine(temp.Path, "Videos", "..", "Videos");
+
+        Assert.Equal(
+            $"Scan started: {Path.GetFullPath(folder)}",
+            ScanReportBuilder.StartedText(folder));
     }
 
     private static VideoItem Video(string name, int trackCount) =>

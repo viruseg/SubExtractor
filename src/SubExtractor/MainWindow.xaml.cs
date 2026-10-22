@@ -197,7 +197,7 @@ public sealed partial class MainWindow : Window
         }
 
         var result = _services.FolderOpener.Open(path);
-        if (result.ErrorMessage is { } error)
+        if (!result.Opened && result.ErrorMessage is { } error)
         {
             _services.Log.Add(error, isError: true);
             RefreshOpenFolderState();
@@ -467,7 +467,13 @@ public sealed partial class MainWindow : Window
 
             if (report.FolderFailed)
             {
-                ClearResults(report.EmptyStateText ?? string.Empty);
+                if (report.EmptyStateText is not { } emptyStateText)
+                {
+                    throw new InvalidOperationException(
+                        "A failed folder scan must provide an empty-state message.");
+                }
+
+                ClearResults(emptyStateText);
                 await sink.FlushAsync();
                 log.Add(report.SummaryText);
                 return;

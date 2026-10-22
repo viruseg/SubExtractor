@@ -7,6 +7,15 @@ public sealed record FolderOpenResult(bool Opened, string? ErrorMessage);
 
 public sealed class FolderOpener
 {
+    private readonly Action<string> _launch;
+
+    public FolderOpener()
+        : this(LaunchExplorer)
+    {
+    }
+
+    public FolderOpener(Action<string> launch) => _launch = launch;
+
     public static string NormalizePath(string path) =>
         Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
 
@@ -15,12 +24,7 @@ public sealed class FolderOpener
         try
         {
             var target = NormalizePath(path);
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = "explorer.exe",
-                Arguments = $"\"{target}\"",
-                UseShellExecute = true,
-            });
+            _launch(target);
 
             return new FolderOpenResult(true, null);
         }
@@ -29,5 +33,15 @@ public sealed class FolderOpener
         {
             return new FolderOpenResult(false, $"Couldn't open the folder: {exception.Message}");
         }
+    }
+
+    private static void LaunchExplorer(string path)
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "explorer.exe",
+            Arguments = $"\"{path}\"",
+            UseShellExecute = true,
+        });
     }
 }

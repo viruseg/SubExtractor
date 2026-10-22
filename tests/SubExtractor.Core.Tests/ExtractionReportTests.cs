@@ -38,7 +38,12 @@ public sealed class ExtractionReportTests
         bool appliesTextRemoval,
         string operations)
     {
-        var plans = new[] { Plan("Movie.eng.srt", false), Plan("Movie.eng.ass", false) };
+        var plans = new[]
+        {
+            Plan("Movie.eng.srt", false),
+            Plan("Movie.eng.SRT", false),
+            Plan("Movie.eng.ass", false),
+        };
 
         var message = Assert.Single(
             ExtractionReport.SrtOnlySkipMessages(plans, appliesTimeShift, appliesTextRemoval));

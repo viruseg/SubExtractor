@@ -13,9 +13,9 @@ public static class ScanReportBuilder
 {
     public static ScanReport Build(ScanResult result)
     {
-        var fileCount = result.Videos.Count;
-        var trackCount = result.Videos.Sum(video => video.Tracks.Count);
         var folderFailed = result.FolderError is not null;
+        var fileCount = folderFailed ? 0 : result.Videos.Count;
+        var trackCount = folderFailed ? 0 : result.Videos.Sum(video => video.Tracks.Count);
 
         return new ScanReport(
             fileCount,
