@@ -312,7 +312,7 @@
             <Button x:Name="ExtractAllButton"
                     Grid.Column="1"
                     Width="132"
-                    Padding="0"
+                    MinHeight="32"
                     HorizontalContentAlignment="Stretch"
                     VerticalContentAlignment="Stretch"
                     CornerRadius="4"
