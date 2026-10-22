@@ -24,22 +24,41 @@
                 <ImageIconSource ImageSource="Assets/AppIcon.ico" />
             </TitleBar.IconSource>
             <TitleBar.RightHeader>
-                <Button x:Name="SettingsButton"
-                        TitleBar.IsDragRegion="False"
-                        AutomationProperties.Name="Settings"
-                        ToolTipService.ToolTip="Settings"
-                        Width="46"
-                        Height="31"
-                        MinHeight="0"
-                        Padding="0"
-                        HorizontalContentAlignment="Center"
-                        VerticalContentAlignment="Center"
-                        CornerRadius="0"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Click="SettingsButton_Click">
-                    <FontIcon Glyph="&#xE713;" FontSize="15" />
-                </Button>
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="OpenFolderButton"
+                            TitleBar.IsDragRegion="False"
+                            AutomationProperties.Name="Open folder in File Explorer"
+                            ToolTipService.ToolTip="Open folder in File Explorer"
+                            Width="46"
+                            Height="31"
+                            MinHeight="0"
+                            Padding="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            CornerRadius="0"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            IsEnabled="False"
+                            Click="OpenFolderButton_Click">
+                        <FontIcon Glyph="&#xE8B7;" FontSize="15" />
+                    </Button>
+                    <Button x:Name="SettingsButton"
+                            TitleBar.IsDragRegion="False"
+                            AutomationProperties.Name="Settings"
+                            ToolTipService.ToolTip="Settings"
+                            Width="46"
+                            Height="31"
+                            MinHeight="0"
+                            Padding="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            CornerRadius="0"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Click="SettingsButton_Click">
+                        <FontIcon Glyph="&#xE713;" FontSize="15" />
+                    </Button>
+                </StackPanel>
             </TitleBar.RightHeader>
         </TitleBar>
 
@@ -79,7 +98,8 @@
                                  PlaceholderText="Folder with video files"
                                  KeyDown="FolderBox_KeyDown"
                                  LostFocus="FolderBox_LostFocus"
-                                 Paste="FolderBox_Paste" />
+                                 Paste="FolderBox_Paste"
+                                 TextChanged="FolderBox_TextChanged" />
                         <Button x:Name="BrowseButton"
                                 Grid.Column="1"
                                 Content="Browse..."

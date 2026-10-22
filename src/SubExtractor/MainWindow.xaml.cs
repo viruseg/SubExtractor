@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -26,6 +27,7 @@ public sealed partial class MainWindow : Window
     private readonly AppServices _services;
     private readonly SolidColorBrush _folderBorderBrush = new(Colors.Red);
     private readonly Brush _folderDropBrush;
+    private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _folderStateTimer;
     private SettingsWindow? _settingsWindow;
     private ProgressWindow? _logWindow;
     private bool _startupStarted;
@@ -56,6 +58,12 @@ public sealed partial class MainWindow : Window
         AppWindow.Closing += MainWindow_Closing;
         Closed += MainWindow_Closed;
         Log.PropertyChanged += Log_PropertyChanged;
+
+        _folderStateTimer = DispatcherQueue.CreateTimer();
+        _folderStateTimer.Interval = TimeSpan.FromMilliseconds(300);
+        _folderStateTimer.IsRepeating = false;
+        _folderStateTimer.Tick += (_, _) => RefreshOpenFolderState();
+
         ApplyStatusForeground();
         ApplyBusyState();
     }
@@ -108,12 +116,16 @@ public sealed partial class MainWindow : Window
         ContentHost.IsHitTestVisible = isEnabled;
         SettingsButton.IsEnabled = isEnabled;
         ExtractAllButton.IsEnabled = _isExtracting || (isEnabled && ViewModel.CanExtract);
+        RefreshOpenFolderState();
 
         if (_extractionPhase == ExtractionPhase.Idle)
         {
             ApplyExtractionButtonVisuals();
         }
     }
+
+    private void RefreshOpenFolderState() =>
+        OpenFolderButton.IsEnabled = PathInput.IsExistingFolder(FolderBox.Text);
 
     private void StatusButton_Click(object sender, RoutedEventArgs e)
     {
@@ -141,6 +153,31 @@ public sealed partial class MainWindow : Window
         settingsWindow.Closed += (_, _) => _settingsWindow = null;
         _settingsWindow = settingsWindow;
         settingsWindow.Activate();
+    }
+
+    private void OpenFolderButton_Click(object sender, RoutedEventArgs e)
+    {
+        var path = PathInput.Sanitize(FolderBox.Text);
+
+        if (!PathInput.IsExistingFolder(path))
+        {
+            RefreshOpenFolderState();
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"\"{Path.TrimEndingDirectorySeparator(path)}\"",
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception exception) when (exception is Win32Exception or InvalidOperationException)
+        {
+            _services.Log.Add($"Couldn't open the folder: {exception.Message}", isError: true);
+        }
     }
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e) => _ = StartUpAsync();
@@ -195,6 +232,7 @@ public sealed partial class MainWindow : Window
             }
 
             FolderBox.Text = folder.Path;
+            RefreshOpenFolderState();
             await StartScanAsync(folder.Path);
         }
         finally
@@ -205,6 +243,12 @@ public sealed partial class MainWindow : Window
 
     private void FolderBox_Paste(object sender, TextControlPasteEventArgs e) =>
         DispatcherQueue.TryEnqueue(() => _ = CommitFolderInputAsync());
+
+    private void FolderBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        _folderStateTimer.Stop();
+        _folderStateTimer.Start();
+    }
 
     private void FolderBox_LostFocus(object sender, RoutedEventArgs e) =>
         DispatcherQueue.TryEnqueue(() =>
@@ -279,6 +323,7 @@ public sealed partial class MainWindow : Window
         }
 
         FolderBox.Text = folder;
+        RefreshOpenFolderState();
         await CommitFolderInputAsync();
     }
 
@@ -320,6 +365,7 @@ public sealed partial class MainWindow : Window
             {
                 SetCurrentFolder(null);
                 ClearResults("Choose a folder to scan.");
+                RefreshOpenFolderState();
                 return;
             }
 
@@ -328,12 +374,14 @@ public sealed partial class MainWindow : Window
                 FolderBox.Text = string.Empty;
                 SetCurrentFolder(null);
                 ClearResults("Choose a folder to scan.");
+                RefreshOpenFolderState();
                 _ = FlashRedAsync();
                 FolderBox.Focus(FocusState.Programmatic);
                 return;
             }
 
             FolderBox.Text = path;
+            RefreshOpenFolderState();
             await StartScanAsync(path);
         }
         finally
