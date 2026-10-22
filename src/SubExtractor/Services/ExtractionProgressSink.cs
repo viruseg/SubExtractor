@@ -102,7 +102,7 @@ public sealed class ExtractionProgressSink(ActivityLog log, DispatcherQueue disp
     private void Post(Action action) => dispatcher.TryEnqueue(() => action());
 
     private void SetProgress(double fraction, bool live) =>
-        log.SetProgress(live ? Math.Min(fraction * 100.0, 99.0) : fraction * 100.0);
+        log.SetProgress(ExtractionProgress.OverallPercent(fraction, live));
 
     private static string NameOf(string filePath) =>
         Path.GetFileName(filePath) is { Length: > 0 } name ? name : filePath;
