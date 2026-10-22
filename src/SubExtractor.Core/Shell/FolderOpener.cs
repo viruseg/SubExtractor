@@ -14,7 +14,11 @@ public sealed class FolderOpener
     {
     }
 
-    public FolderOpener(Action<string> launch) => _launch = launch;
+    public FolderOpener(Action<string> launch)
+    {
+        ArgumentNullException.ThrowIfNull(launch);
+        _launch = launch;
+    }
 
     public static string NormalizePath(string path) =>
         Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));

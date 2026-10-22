@@ -81,6 +81,10 @@ public sealed class FfmpegHealthCheckTests
             ?? typeof(FfmpegHealthCheckTests).Assembly.Location;
         File.Copy(pe, Path.Combine(directory, "ffmpeg.exe"));
         File.Copy(pe, Path.Combine(directory, "ffprobe.exe"));
+        Assert.True(FfmpegHealthCheck.IsPortableExecutable(
+            Path.Combine(directory, "ffmpeg.exe")));
+        Assert.True(FfmpegHealthCheck.IsPortableExecutable(
+            Path.Combine(directory, "ffprobe.exe")));
         var manager = new FfmpegManager(
             temp.Path,
             new StubDownloader(),

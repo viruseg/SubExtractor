@@ -29,15 +29,19 @@ public sealed class TimeShiftTextTests
         Assert.False(fields.IsNegative);
     }
 
-    [Fact]
-    public void Format_clamps_hours_to_the_parser_limit()
+    [Theory]
+    [InlineData(100.5, false)]
+    [InlineData(-100.5, true)]
+    public void Format_clamps_hours_to_the_parser_limit(double hours, bool isNegative)
     {
-        var value = TimeSpan.FromHours(100) + TimeSpan.FromMinutes(30);
+        var value = TimeSpan.FromHours(hours);
         var fields = TimeShiftText.Format(value);
 
+        Assert.Equal(isNegative, fields.IsNegative);
         Assert.Equal("99", fields.Hours);
         Assert.Equal("30", fields.Minutes);
-        Assert.Equal(TimeSpan.FromHours(99) + TimeSpan.FromMinutes(30), TimeShiftText.Parse(fields));
+        var expected = TimeSpan.FromHours(99) + TimeSpan.FromMinutes(30);
+        Assert.Equal(isNegative ? expected.Negate() : expected, TimeShiftText.Parse(fields));
     }
 
     [Theory]

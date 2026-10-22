@@ -48,6 +48,12 @@ public sealed class FolderOpenerTests
         Assert.Equal("Couldn't open the folder: boom", result.ErrorMessage);
     }
 
+    [Fact]
+    public void Constructor_rejects_a_null_launcher()
+    {
+        Assert.Throws<ArgumentNullException>(() => new FolderOpener(null!));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("\0")]
