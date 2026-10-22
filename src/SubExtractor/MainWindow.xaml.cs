@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Diagnostics;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -196,20 +195,10 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        try
+        var result = _services.FolderOpener.Open(path);
+        if (result.ErrorMessage is { } error)
         {
-            var target = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = "explorer.exe",
-                Arguments = $"\"{target}\"",
-                UseShellExecute = true,
-            });
-        }
-        catch (Exception exception) when (exception is Win32Exception or InvalidOperationException
-            or ArgumentException or NotSupportedException)
-        {
-            _services.Log.Add($"Couldn't open the folder: {exception.Message}", isError: true);
+            _services.Log.Add(error, isError: true);
             RefreshOpenFolderState();
         }
     }

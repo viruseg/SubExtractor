@@ -3,6 +3,7 @@ using SubExtractor.Core.Ffmpeg;
 using SubExtractor.Core.Ffprobe;
 using SubExtractor.Core.Processing;
 using SubExtractor.Core.Scanning;
+using SubExtractor.Core.Shell;
 
 namespace SubExtractor.Services;
 
@@ -30,6 +31,7 @@ public sealed class AppServices
         TextRemoval.PersistenceFailed += (_, exception) =>
             Log.Add($"Couldn't access saved text removal rules: {exception.Message}", isError: true);
         Bootstrapper = new FfmpegBootstrapper(Ffmpeg, Busy, Operations, Log);
+        FolderOpener = new FolderOpener();
     }
 
     public string DataDirectory { get; }
@@ -53,6 +55,8 @@ public sealed class AppServices
     public TextRemovalSettings TextRemoval { get; }
 
     public FfmpegBootstrapper Bootstrapper { get; }
+
+    public FolderOpener FolderOpener { get; }
 
     private sealed class OffThreadProcessRunner(IProcessRunner inner) : IProcessRunner
     {
