@@ -12,9 +12,6 @@ namespace SubExtractor.Views;
 
 public sealed partial class SettingsWindow : Window
 {
-    private static readonly TimeSpan LocalVersionTimeout = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan RemoteVersionTimeout = TimeSpan.FromSeconds(15);
-
     private readonly AppServices _services;
     private readonly Window _owner;
     private bool _checkStarted;
@@ -175,57 +172,33 @@ public sealed partial class SettingsWindow : Window
 
         try
         {
-            var manager = _services.Ffmpeg;
-
-            string? localOutput;
-            try
+            var local = await _services.FfmpegUpdates.ReadLocalAsync();
+            if (local.Display is { Length: > 0 })
             {
-                using var localCts = new CancellationTokenSource(LocalVersionTimeout);
-                localOutput = await manager.ReadLocalVersionAsync(localCts.Token);
+                ViewModel.SetVersion(local.Display);
             }
-            catch (Exception ex)
+            else
             {
                 ViewModel.ShowVersionError();
-                _services.Log.Add($"Couldn't read the local ffmpeg version: {ex.Message}", isError: true);
+            }
+
+            if (local.ErrorMessage is not null)
+            {
+                _services.Log.Add(local.ErrorMessage, isError: true);
                 return;
             }
 
-            var localVersion = FfmpegVersionParser.Parse(localOutput ?? "");
-            if (localVersion.Display.Length == 0)
-            {
-                ViewModel.ShowVersionError();
-                _services.Log.Add("Couldn't read the local ffmpeg version.", isError: true);
-                return;
-            }
+            var check = await _services.FfmpegUpdates.CheckForUpdateAsync(local);
+            _latestVersionDisplay = check.LatestDisplay ?? _latestVersionDisplay;
 
-            ViewModel.SetVersion(localVersion.Display);
-
-            string remoteVersion;
-            try
-            {
-                using var remoteCts = new CancellationTokenSource(RemoteVersionTimeout);
-                remoteVersion = await manager.GetLatestVersionAsync(remoteCts.Token);
-            }
-            catch (Exception ex)
-            {
-                _services.Log.Add($"Couldn't check for ffmpeg updates: {ex.Message}", isError: true);
-                return;
-            }
-
-            var remoteNumeric = VersionComparison.ParseNumeric(remoteVersion);
-            if (localVersion.Numeric is null || remoteNumeric is null)
-            {
-                _services.Log.Add(
-                    $"Couldn't compare ffmpeg versions: local '{localVersion.Display}', server '{remoteVersion}'.",
-                    isError: true);
-                return;
-            }
-
-            _latestVersionDisplay = remoteNumeric.ToString();
-
-            if (VersionComparison.IsNewer(localOutput ?? "", remoteVersion))
+            if (check.UpdateAvailable)
             {
                 ViewModel.ShowUpdateAvailable();
+            }
+
+            if (check.ErrorMessage is not null)
+            {
+                _services.Log.Add(check.ErrorMessage, isError: true);
             }
         }
         catch (Exception ex)
@@ -255,34 +228,16 @@ public sealed partial class SettingsWindow : Window
         try
         {
             busy = _services.Busy.Begin(isUpdate: true);
-            await _services.Ffmpeg.InstallAsync(new UpdateProgress(this), CancellationToken.None);
+            var result = await _services.FfmpegUpdates.UpdateAsync(
+                new UpdateProgress(this),
+                _latestVersionDisplay ?? ViewModel.VersionText);
 
-            var display = _latestVersionDisplay ?? ViewModel.VersionText;
-            try
+            if (result.WarningMessage is not null)
             {
-                using var localCts = new CancellationTokenSource(LocalVersionTimeout);
-                var localOutput = await _services.Ffmpeg.ReadLocalVersionAsync(localCts.Token);
-                var parsed = FfmpegVersionParser.Parse(localOutput ?? "");
-                if (parsed.Display.Length > 0)
-                {
-                    display = parsed.Display;
-                }
-                else
-                {
-                    _services.Log.Add(
-                        "Couldn't read the local ffmpeg version after updating.",
-                        isError: true);
-                }
-            }
-            catch (Exception ex)
-            {
-                // NOTE: The install already succeeded; a failed version re-read must not report an update failure.
-                _services.Log.Add(
-                    $"Couldn't read the local ffmpeg version after updating: {ex.Message}",
-                    isError: true);
+                _services.Log.Add(result.WarningMessage, isError: true);
             }
 
-            ViewModel.ShowUpdateSucceeded(display);
+            ViewModel.ShowUpdateSucceeded(result.Display);
         }
         catch (Exception ex)
         {

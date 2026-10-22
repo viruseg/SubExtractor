@@ -18,6 +18,7 @@ public sealed class AppServices
         var processRunner = new OffThreadProcessRunner(new ProcessRunner());
 
         Ffmpeg = new FfmpegManager(DataDirectory, downloader, processRunner);
+        FfmpegUpdates = new FfmpegUpdateService(Ffmpeg);
         Scanner = new ScanService(new FfprobeService(processRunner, Ffmpeg.FfprobePath));
         Extractor = new ExtractionService(processRunner, Ffmpeg.FfmpegPath);
         OverwriteRecycler = new OverwriteRecycler(new FileRecycler());
@@ -37,6 +38,8 @@ public sealed class AppServices
     public string DataDirectory { get; }
 
     public FfmpegManager Ffmpeg { get; }
+
+    public FfmpegUpdateService FfmpegUpdates { get; }
 
     public ScanService Scanner { get; }
 
