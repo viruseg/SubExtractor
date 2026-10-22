@@ -122,7 +122,7 @@
                                             </ItemsRepeater.Layout>
                                             <ItemsRepeater.ItemTemplate>
                                                 <DataTemplate x:DataType="viewModels:TableColumnViewModel">
-                                                    <Grid Width="{x:Bind Width}">
+                                                    <Grid Width="{x:Bind Width, Mode=OneWay}">
                                                         <Button Visibility="{x:Bind HeaderButtonVisibility}"
                                                                 Style="{StaticResource TableHeaderButtonStyle}"
                                                                 Tag="{x:Bind}"
@@ -197,7 +197,7 @@
                                                         </ItemsRepeater.Layout>
                                                         <ItemsRepeater.ItemTemplate>
                                                             <DataTemplate x:DataType="viewModels:TableCellViewModel">
-                                                                <Grid Width="{x:Bind Width}" Height="36">
+                                                                <Grid Width="{x:Bind Width, Mode=OneWay}" Height="36">
                                                                     <ToggleButton Visibility="{x:Bind TrackCellVisibility}"
                                                                                   Style="{StaticResource TrackToggleStyle}"
                                                                                   IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
