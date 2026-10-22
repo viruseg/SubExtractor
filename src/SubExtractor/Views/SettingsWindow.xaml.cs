@@ -1,6 +1,7 @@
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using SubExtractor.Core.Extraction;
 using SubExtractor.Core.Ffmpeg;
 using SubExtractor.Services;
 using SubExtractor.ViewModels;
@@ -129,8 +130,8 @@ public sealed partial class SettingsWindow : Window
 
         var hasFolder = _services.TextRemoval.Folder is not null;
         FolderRemovalBox.IsEnabled = hasFolder;
-        FolderRemovalBox.Text = string.Join(Environment.NewLine, _services.TextRemoval.FolderRules);
-        GlobalRemovalBox.Text = string.Join(Environment.NewLine, _services.TextRemoval.GlobalRules);
+        FolderRemovalBox.Text = TextRuleList.Format(_services.TextRemoval.FolderRules);
+        GlobalRemovalBox.Text = TextRuleList.Format(_services.TextRemoval.GlobalRules);
 
         _updatingRules = false;
     }
@@ -143,7 +144,7 @@ public sealed partial class SettingsWindow : Window
         }
 
         _updatingRules = true;
-        _services.TextRemoval.UpdateFolderRules(ParseRules(FolderRemovalBox.Text));
+        _services.TextRemoval.UpdateFolderRules(TextRuleList.Parse(FolderRemovalBox.Text));
         _updatingRules = false;
     }
 
@@ -155,15 +156,12 @@ public sealed partial class SettingsWindow : Window
         }
 
         _updatingRules = true;
-        _services.TextRemoval.UpdateGlobalRules(ParseRules(GlobalRemovalBox.Text));
+        _services.TextRemoval.UpdateGlobalRules(TextRuleList.Parse(GlobalRemovalBox.Text));
         _updatingRules = false;
     }
 
     private void RemovalBox_LostFocus(object sender, RoutedEventArgs e) =>
         _services.TextRemoval.Save();
-
-    private static IReadOnlyList<string> ParseRules(string text) =>
-        text.Split(["\r\n", "\n", "\r"], StringSplitOptions.None);
 
     private async Task CheckVersionsAsync()
     {
