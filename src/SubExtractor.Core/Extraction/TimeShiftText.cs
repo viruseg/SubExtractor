@@ -24,7 +24,7 @@ public static class TimeShiftText
 
         return new TimeShiftFields(
             negative,
-            ((long)absolute.TotalHours).ToString("00"),
+            Math.Min((long)absolute.TotalHours, 99).ToString("00"),
             absolute.Minutes.ToString("00"),
             absolute.Seconds.ToString("00"),
             absolute.Milliseconds.ToString("000"));

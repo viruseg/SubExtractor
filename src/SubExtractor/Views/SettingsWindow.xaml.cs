@@ -364,7 +364,8 @@ public sealed partial class SettingsWindow : Window
         box == ShiftHoursBox ? TimeShiftPart.Hours
         : box == ShiftMinutesBox ? TimeShiftPart.Minutes
         : box == ShiftSecondsBox ? TimeShiftPart.Seconds
-        : TimeShiftPart.Milliseconds;
+        : box == ShiftMillisecondsBox ? TimeShiftPart.Milliseconds
+        : throw new ArgumentOutOfRangeException(nameof(box), box.Name, "Unknown time-shift field.");
 
     private sealed class UpdateProgress(SettingsWindow window) : IProgress<FfmpegInstallProgress>
     {

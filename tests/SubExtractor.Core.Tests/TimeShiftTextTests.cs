@@ -29,6 +29,17 @@ public sealed class TimeShiftTextTests
         Assert.False(fields.IsNegative);
     }
 
+    [Fact]
+    public void Format_clamps_hours_to_the_parser_limit()
+    {
+        var value = TimeSpan.FromHours(100) + TimeSpan.FromMinutes(30);
+        var fields = TimeShiftText.Format(value);
+
+        Assert.Equal("99", fields.Hours);
+        Assert.Equal("30", fields.Minutes);
+        Assert.Equal(TimeSpan.FromHours(99) + TimeSpan.FromMinutes(30), TimeShiftText.Parse(fields));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(3_723_004)]
@@ -64,6 +75,8 @@ public sealed class TimeShiftTextTests
     [InlineData(TimeShiftPart.Hours, "99", "99")]
     [InlineData(TimeShiftPart.Hours, "100", "99")]
     [InlineData(TimeShiftPart.Hours, "", "00")]
+    [InlineData(TimeShiftPart.Hours, null, "00")]
+    [InlineData(TimeShiftPart.Hours, "999999999999999999999", "00")]
     [InlineData(TimeShiftPart.Minutes, "9", "09")]
     [InlineData(TimeShiftPart.Minutes, "60", "59")]
     [InlineData(TimeShiftPart.Seconds, "5", "05")]
