@@ -158,6 +158,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
         UpdateCanExtract();
     }
 
+    public void SetFileContentWidth(double width)
+    {
+        if (Math.Abs(width - _fileContentWidth) < 0.5)
+        {
+            return;
+        }
+
+        _fileContentWidth = width;
+    }
+
     public void SetFileColumnWidth(double viewportWidth)
     {
         if (viewportWidth <= 0)

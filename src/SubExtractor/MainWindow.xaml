@@ -238,11 +238,11 @@
                                                                     </ToggleButton>
                                                                     <Button Visibility="{x:Bind FileCellVisibility}"
                                                                             Style="{StaticResource TableFileCellButtonStyle}"
-                                                                            Padding="12,0,8,0"
+                                                                            Padding="12,0,12,0"
                                                                             Tag="{x:Bind}"
                                                                             Click="FileCell_Click"
                                                                             AutomationProperties.Name="{x:Bind FileName}">
-                                                                        <Grid ColumnSpacing="8">
+                                                                        <Grid>
                                                                             <Grid.ColumnDefinitions>
                                                                                 <ColumnDefinition Width="*" />
                                                                                 <ColumnDefinition Width="Auto" />
@@ -255,10 +255,12 @@
                                                                             <TextBlock Grid.Column="1"
                                                                                        Text="{x:Bind StatusText}"
                                                                                        Style="{StaticResource TableStatusStyle}"
+                                                                                       Margin="8,0,0,0"
                                                                                        Visibility="{x:Bind NoSubtitlesVisibility, Mode=OneWay}" />
                                                                             <TextBlock Grid.Column="1"
                                                                                        Text="{x:Bind StatusText}"
                                                                                        Style="{StaticResource TableCriticalStatusStyle}"
+                                                                                       Margin="8,0,0,0"
                                                                                        Visibility="{x:Bind ProbeFailedVisibility, Mode=OneWay}" />
                                                                         </Grid>
                                                                     </Button>
@@ -319,5 +321,16 @@
                     IsEnabled="{x:Bind ViewModel.CanExtract, Mode=OneWay}"
                     Click="ExtractAll_Click" />
         </Grid>
+
+        <TextBlock x:Name="FileNameMeasurer"
+                   Style="{StaticResource TableFileNameStyle}"
+                   Opacity="0"
+                   IsHitTestVisible="False"
+                   VerticalAlignment="Top" />
+        <TextBlock x:Name="FileStatusMeasurer"
+                   Style="{StaticResource TableStatusStyle}"
+                   Opacity="0"
+                   IsHitTestVisible="False"
+                   VerticalAlignment="Top" />
     </Grid>
 </Window>

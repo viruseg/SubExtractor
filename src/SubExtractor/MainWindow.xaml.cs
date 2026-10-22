@@ -369,6 +369,7 @@ public sealed partial class MainWindow : Window
             }
 
             ViewModel.SetVideos(result.Videos);
+            UpdateFileContentWidth();
             UpdateFileColumnWidth();
             var trackCount = result.Videos.Sum(video => video.Tracks.Count);
 
@@ -593,6 +594,42 @@ public sealed partial class MainWindow : Window
 
     private void UpdateFileColumnWidth() =>
         ViewModel.SetFileColumnWidth(BodyScrollViewer.ViewportWidth);
+
+    private void UpdateFileContentWidth()
+    {
+        var contentWidth = 0d;
+        var statusWidths = new Dictionary<string, double>(StringComparer.Ordinal);
+
+        foreach (var row in ViewModel.Rows)
+        {
+            var cell = row.FileCell;
+            var cellWidth = MeasureText(FileNameMeasurer, cell.FileName);
+
+            if (!string.IsNullOrEmpty(cell.StatusText))
+            {
+                if (!statusWidths.TryGetValue(cell.StatusText, out var statusWidth))
+                {
+                    statusWidth = MeasureText(FileStatusMeasurer, cell.StatusText);
+                    statusWidths[cell.StatusText] = statusWidth;
+                }
+
+                cellWidth += statusWidth + ColumnWidthPolicy.FileCellGap;
+            }
+
+            contentWidth = Math.Max(
+                contentWidth,
+                Math.Ceiling(cellWidth) + ColumnWidthPolicy.HorizontalPadding + 1);
+        }
+
+        ViewModel.SetFileContentWidth(contentWidth);
+    }
+
+    private static double MeasureText(TextBlock measurer, string text)
+    {
+        measurer.Text = text;
+        measurer.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+        return measurer.DesiredSize.Width;
+    }
 
     private void BodyScrollViewer_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
     {
