@@ -6,4 +6,10 @@ public interface IProcessRunner
         string executablePath,
         IReadOnlyList<string> arguments,
         CancellationToken cancellationToken);
+
+    Task<ProcessResult> RunAsync(
+        string executablePath,
+        IReadOnlyList<string> arguments,
+        Action<string>? onStandardOutputLine,
+        CancellationToken cancellationToken);
 }

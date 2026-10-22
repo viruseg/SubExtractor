@@ -17,6 +17,13 @@ public sealed class FakeProcessRunner : IProcessRunner
     public Task<ProcessResult> RunAsync(
         string executablePath,
         IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken) =>
+        RunAsync(executablePath, arguments, onStandardOutputLine: null, cancellationToken);
+
+    public Task<ProcessResult> RunAsync(
+        string executablePath,
+        IReadOnlyList<string> arguments,
+        Action<string>? onStandardOutputLine,
         CancellationToken cancellationToken)
     {
         LastExecutable = executablePath;

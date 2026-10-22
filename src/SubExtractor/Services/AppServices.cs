@@ -59,11 +59,19 @@ public sealed class AppServices
         public Task<ProcessResult> RunAsync(
             string executablePath,
             IReadOnlyList<string> arguments,
+            CancellationToken cancellationToken) =>
+            RunAsync(executablePath, arguments, onStandardOutputLine: null, cancellationToken);
+
+        public Task<ProcessResult> RunAsync(
+            string executablePath,
+            IReadOnlyList<string> arguments,
+            Action<string>? onStandardOutputLine,
             CancellationToken cancellationToken)
         {
             // WHY: Starting a console process on the UI thread crashes the WinUI dispatcher.
             return Task.Run(
-                () => inner.RunAsync(executablePath, arguments, cancellationToken),
+                () => inner.RunAsync(
+                    executablePath, arguments, onStandardOutputLine, cancellationToken),
                 cancellationToken);
         }
     }

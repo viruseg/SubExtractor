@@ -301,6 +301,10 @@ public class ExtractionServiceTests
         public List<IReadOnlyList<string>> Calls { get; } = [];
 
         public Task<ProcessResult> RunAsync(string executablePath, IReadOnlyList<string> arguments, CancellationToken ct)
+            => RunAsync(executablePath, arguments, null, ct);
+
+        public Task<ProcessResult> RunAsync(string executablePath, IReadOnlyList<string> arguments,
+            Action<string>? onStandardOutputLine, CancellationToken ct)
         {
             Calls.Add(arguments);
             File.WriteAllText(arguments[^1], content);
@@ -313,6 +317,10 @@ public class ExtractionServiceTests
         private int _calls;
 
         public Task<ProcessResult> RunAsync(string executablePath, IReadOnlyList<string> arguments, CancellationToken ct)
+            => RunAsync(executablePath, arguments, null, ct);
+
+        public Task<ProcessResult> RunAsync(string executablePath, IReadOnlyList<string> arguments,
+            Action<string>? onStandardOutputLine, CancellationToken ct)
         {
             _calls++;
             File.WriteAllText(arguments[^1], _calls == 1 ? "OK" : "PARTIAL");
@@ -327,6 +335,10 @@ public class ExtractionServiceTests
         private int _calls;
 
         public Task<ProcessResult> RunAsync(string executablePath, IReadOnlyList<string> arguments, CancellationToken ct)
+            => RunAsync(executablePath, arguments, null, ct);
+
+        public Task<ProcessResult> RunAsync(string executablePath, IReadOnlyList<string> arguments,
+            Action<string>? onStandardOutputLine, CancellationToken ct)
         {
             _calls++;
             if (_calls == 1)

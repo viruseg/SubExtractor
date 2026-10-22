@@ -5,9 +5,16 @@ namespace SubExtractor.Core.Processing;
 
 public sealed class ProcessRunner : IProcessRunner
 {
+    public Task<ProcessResult> RunAsync(
+        string executablePath,
+        IReadOnlyList<string> arguments,
+        CancellationToken cancellationToken) =>
+        RunAsync(executablePath, arguments, onStandardOutputLine: null, cancellationToken);
+
     public async Task<ProcessResult> RunAsync(
         string executablePath,
         IReadOnlyList<string> arguments,
+        Action<string>? onStandardOutputLine,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -31,23 +38,63 @@ public sealed class ProcessRunner : IProcessRunner
         using var process = new Process { StartInfo = startInfo };
         process.Start();
 
-        var standardOutput = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var standardOutput = ReadStandardOutputAsync(
+            process.StandardOutput,
+            onStandardOutputLine,
+            cancellationToken);
         var standardError = process.StandardError.ReadToEndAsync(cancellationToken);
 
         try
         {
             await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+
+            return new ProcessResult(
+                process.ExitCode,
+                await standardOutput.ConfigureAwait(false),
+                await standardError.ConfigureAwait(false));
         }
         catch (OperationCanceledException)
         {
             KillProcessTree(process);
+
+            try
+            {
+                await standardOutput.ConfigureAwait(false);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                await standardError.ConfigureAwait(false);
+            }
+            catch
+            {
+            }
+
             throw;
         }
+    }
 
-        return new ProcessResult(
-            process.ExitCode,
-            await standardOutput.ConfigureAwait(false),
-            await standardError.ConfigureAwait(false));
+    private static async Task<string> ReadStandardOutputAsync(
+        StreamReader reader,
+        Action<string>? onStandardOutputLine,
+        CancellationToken cancellationToken)
+    {
+        if (onStandardOutputLine is null)
+        {
+            return await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        var output = new StringBuilder();
+        while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+        {
+            output.AppendLine(line);
+            onStandardOutputLine(line);
+        }
+
+        return output.ToString();
     }
 
     private static void KillProcessTree(Process process)
