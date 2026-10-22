@@ -2,6 +2,7 @@ using System.ComponentModel;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
@@ -31,6 +32,7 @@ public sealed partial class MainWindow : Window
     private bool _suppressFolderCommit;
     private bool _isCommittingFolder;
     private bool _isExtracting;
+    private ExtractionPhase _extractionPhase;
     private string? _currentFolder;
 
     public MainWindow(AppServices services)
@@ -49,6 +51,7 @@ public sealed partial class MainWindow : Window
         FolderBorder.BorderBrush = _folderBorderBrush;
 
         _services.Busy.Changed += Services_BusyChanged;
+        ViewModel.PropertyChanged += ViewModel_PropertyChanged;
         MainRoot.Loaded += MainWindow_Loaded;
         AppWindow.Closing += MainWindow_Closing;
         Closed += MainWindow_Closed;
@@ -63,11 +66,34 @@ public sealed partial class MainWindow : Window
 
     private void Services_BusyChanged(object? sender, EventArgs e) => ApplyBusyState();
 
+    private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.CanExtract))
+        {
+            ApplyBusyState();
+        }
+    }
+
     private void Log_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(ActivityLog.LastIsError))
         {
             ApplyStatusForeground();
+            return;
+        }
+
+        if (_extractionPhase == ExtractionPhase.Idle)
+        {
+            return;
+        }
+
+        if (e.PropertyName == nameof(ActivityLog.IsCancelRequested) && Log.IsCancelRequested)
+        {
+            SetExtractionPhase(ExtractionPhase.Stopping);
+        }
+        else if (e.PropertyName == nameof(ActivityLog.Progress))
+        {
+            ApplyExtractionButtonVisuals();
         }
     }
 
@@ -81,7 +107,7 @@ public sealed partial class MainWindow : Window
         ContentHost.IsEnabled = isEnabled;
         ContentHost.IsHitTestVisible = isEnabled;
         SettingsButton.IsEnabled = isEnabled;
-        ExtractAllButton.IsEnabled = isEnabled && ViewModel.CanExtract;
+        ExtractAllButton.IsEnabled = _isExtracting || (isEnabled && ViewModel.CanExtract);
     }
 
     private void StatusButton_Click(object sender, RoutedEventArgs e)
@@ -387,7 +413,96 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void ExtractAll_Click(object sender, RoutedEventArgs e) => _ = ExtractAllAsync();
+    private void ExtractAll_Click(object sender, RoutedEventArgs e)
+    {
+        if (_extractionPhase == ExtractionPhase.Running)
+        {
+            RequestStop();
+        }
+        else if (_extractionPhase == ExtractionPhase.Idle)
+        {
+            _ = ExtractAllAsync();
+        }
+    }
+
+    private void RequestStop()
+    {
+        if (_extractionPhase != ExtractionPhase.Running)
+        {
+            return;
+        }
+
+        SetExtractionPhase(ExtractionPhase.Stopping);
+        Log.RequestCancel();
+    }
+
+    private void SetExtractionPhase(ExtractionPhase phase)
+    {
+        if (_extractionPhase == phase)
+        {
+            return;
+        }
+
+        _extractionPhase = phase;
+        ApplyBusyState();
+        ApplyExtractionButtonVisuals();
+    }
+
+    private void ApplyExtractionButtonVisuals()
+    {
+        if (_extractionPhase == ExtractionPhase.Idle)
+        {
+            ExtractAllButton.Style = (Style)Application.Current.Resources["AccentButtonStyle"];
+            ExtractAllButton.ClearValue(Control.BackgroundProperty);
+            ExtractProgressFill.Visibility = Visibility.Collapsed;
+            ExtractButtonLabel.Text = "Extract All";
+            AutomationProperties.SetName(ExtractAllButton, "Extract all subtitles");
+            return;
+        }
+
+        ExtractAllButton.Style =
+            (Style)Application.Current.Resources["ExtractionProgressButtonStyle"];
+
+        var stopping = _extractionPhase == ExtractionPhase.Stopping;
+        var stop = stopping ||
+                   ExtractAllButton.IsPointerOver ||
+                   ExtractAllButton.FocusState == FocusState.Keyboard;
+
+        if (stop)
+        {
+            ExtractAllButton.Background =
+                (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"];
+            ExtractProgressFill.Visibility = Visibility.Collapsed;
+            ExtractButtonLabel.Text = stopping ? "Stopping…" : "Stop";
+            AutomationProperties.SetName(
+                ExtractAllButton, stopping ? "Stopping extraction" : "Stop extraction");
+            return;
+        }
+
+        ExtractAllButton.Background =
+            (Brush)Application.Current.Resources["ControlFillColorDefaultBrush"];
+        ExtractProgressFill.Visibility = Visibility.Visible;
+
+        var percent = (int)Math.Round(Math.Clamp(Log.Progress ?? 0, 0, 100));
+        ExtractButtonLabel.Text = $"{percent}%";
+        ExtractProgressFill.Width = ExtractButtonSurface.ActualWidth * percent / 100;
+        AutomationProperties.SetName(ExtractAllButton, $"Extract all subtitles — {percent}% complete");
+    }
+
+    private void ExtractAllButton_PointerEntered(object sender, PointerRoutedEventArgs e) =>
+        ApplyExtractionButtonVisuals();
+
+    private void ExtractAllButton_PointerExited(object sender, PointerRoutedEventArgs e) =>
+        ApplyExtractionButtonVisuals();
+
+    private void ExtractAllButton_GotFocus(object sender, RoutedEventArgs e) =>
+        ApplyExtractionButtonVisuals();
+
+    private void ExtractAllButton_LostFocus(object sender, RoutedEventArgs e) =>
+        ApplyExtractionButtonVisuals();
+
+    private void ExtractButtonSurface_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        ApplyExtractionButtonVisuals();
 
     private async Task ExtractAllAsync()
     {
@@ -422,6 +537,7 @@ public sealed partial class MainWindow : Window
             started = true;
             log.Add("Extraction started");
             log.SetProgress(0);
+            SetExtractionPhase(ExtractionPhase.Running);
 
             var sink = new ExtractionProgressSink(log, DispatcherQueue);
 
@@ -481,10 +597,12 @@ public sealed partial class MainWindow : Window
         {
             if (started)
             {
+                SetExtractionPhase(ExtractionPhase.Idle);
                 log.EndOperation();
             }
 
             _isExtracting = false;
+            ApplyBusyState();
         }
     }
 
@@ -649,5 +767,12 @@ public sealed partial class MainWindow : Window
             _folderBorderBrush.Opacity = 0;
             await Task.Delay(100);
         }
+    }
+
+    private enum ExtractionPhase
+    {
+        Idle,
+        Running,
+        Stopping,
     }
 }

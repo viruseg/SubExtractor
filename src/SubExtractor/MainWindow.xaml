@@ -318,9 +318,13 @@
                     CornerRadius="4"
                     Style="{StaticResource AccentButtonStyle}"
                     AutomationProperties.Name="Extract all subtitles"
-                    IsEnabled="{x:Bind ViewModel.CanExtract, Mode=OneWay}"
-                    Click="ExtractAll_Click">
-                <Grid x:Name="ExtractButtonSurface">
+                    Click="ExtractAll_Click"
+                    PointerEntered="ExtractAllButton_PointerEntered"
+                    PointerExited="ExtractAllButton_PointerExited"
+                    GotFocus="ExtractAllButton_GotFocus"
+                    LostFocus="ExtractAllButton_LostFocus">
+                <Grid x:Name="ExtractButtonSurface"
+                      SizeChanged="ExtractButtonSurface_SizeChanged">
                     <Border x:Name="ExtractProgressFill"
                             HorizontalAlignment="Left"
                             VerticalAlignment="Stretch"
