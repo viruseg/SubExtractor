@@ -34,6 +34,7 @@ public sealed partial class MainWindow : Window
     private bool _suppressFolderCommit;
     private bool _isCommittingFolder;
     private bool _isExtracting;
+    private int _folderStateVersion;
     private ExtractionPhase _extractionPhase;
     private string? _currentFolder;
 
@@ -124,8 +125,29 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void RefreshOpenFolderState() =>
-        OpenFolderButton.IsEnabled = PathInput.IsExistingFolder(FolderBox.Text);
+    private void RefreshOpenFolderState()
+    {
+        var version = ++_folderStateVersion;
+        var text = FolderBox.Text;
+
+        if (PathInput.Sanitize(text).Length == 0)
+        {
+            OpenFolderButton.IsEnabled = false;
+            return;
+        }
+
+        _ = RefreshOpenFolderStateAsync(version, text);
+    }
+
+    private async Task RefreshOpenFolderStateAsync(int version, string text)
+    {
+        var exists = await Task.Run(() => PathInput.IsExistingFolder(text));
+
+        if (version == _folderStateVersion)
+        {
+            OpenFolderButton.IsEnabled = exists;
+        }
+    }
 
     private void StatusButton_Click(object sender, RoutedEventArgs e)
     {
@@ -155,11 +177,20 @@ public sealed partial class MainWindow : Window
         settingsWindow.Activate();
     }
 
-    private void OpenFolderButton_Click(object sender, RoutedEventArgs e)
-    {
-        var path = PathInput.Sanitize(FolderBox.Text);
+    private void OpenFolderButton_Click(object sender, RoutedEventArgs e) => _ = OpenFolderAsync();
 
-        if (!PathInput.IsExistingFolder(path))
+    private async Task OpenFolderAsync()
+    {
+        var text = FolderBox.Text;
+        var path = PathInput.Sanitize(text);
+
+        if (path.Length == 0 || !await Task.Run(() => PathInput.IsExistingFolder(path)))
+        {
+            RefreshOpenFolderState();
+            return;
+        }
+
+        if (!string.Equals(text, FolderBox.Text, StringComparison.Ordinal))
         {
             RefreshOpenFolderState();
             return;
@@ -167,16 +198,19 @@ public sealed partial class MainWindow : Window
 
         try
         {
+            var target = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
             Process.Start(new ProcessStartInfo
             {
                 FileName = "explorer.exe",
-                Arguments = $"\"{Path.TrimEndingDirectorySeparator(path)}\"",
+                Arguments = $"\"{target}\"",
                 UseShellExecute = true,
             });
         }
-        catch (Exception exception) when (exception is Win32Exception or InvalidOperationException)
+        catch (Exception exception) when (exception is Win32Exception or InvalidOperationException
+            or ArgumentException or NotSupportedException)
         {
             _services.Log.Add($"Couldn't open the folder: {exception.Message}", isError: true);
+            RefreshOpenFolderState();
         }
     }
 
