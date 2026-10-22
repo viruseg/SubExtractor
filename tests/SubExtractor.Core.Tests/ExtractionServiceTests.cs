@@ -354,6 +354,26 @@ public class ExtractionServiceTests
             sink.LiveProgress.Select(entry => (entry.CompletedInFile, entry.CurrentFraction)));
     }
 
+    [Fact]
+    public async Task Extract_handles_known_duration_when_ffmpeg_reports_no_progress()
+    {
+        using var temp = new TempDirectory();
+        var plan = new OutputPlan(
+            new SubtitleTrack(
+                Path.Combine(temp.Path, "Movie.mkv"), 2, "subrip", null, "eng",
+                TimeSpan.FromSeconds(100)),
+            Path.Combine(temp.Path, "Movie.eng.srt"), ".srt", "srt", SubtitleWriteMode.Copy, false);
+        var sink = new RecordingExtractionSink();
+
+        await new ExtractionService(new ReportingProcessRunner([]), "ffmpeg.exe")
+            .ExtractAsync([plan], TimeSpan.Zero, sink, CancellationToken.None);
+
+        Assert.Empty(sink.LiveProgress);
+        Assert.Contains("FileStarted:Movie.mkv:0/1", sink.Events);
+        Assert.Contains("TrackFinished:Movie.mkv:1/1:1/1", sink.Events);
+        Assert.Contains("FileFinished:Movie.mkv", sink.Events);
+    }
+
     private sealed class WritingProcessRunner(string content, int exitCode = 0) : IProcessRunner
     {
         public List<IReadOnlyList<string>> Calls { get; } = [];

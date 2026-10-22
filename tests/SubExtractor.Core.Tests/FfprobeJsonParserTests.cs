@@ -50,6 +50,18 @@ public class FfprobeJsonParserTests
         Assert.Equal(TimeSpan.FromSeconds(2914.72), track.VideoDuration);
     }
 
+    [Fact]
+    public void Parse_reads_numeric_video_duration_from_format()
+    {
+        const string json = """
+        {"streams":[{"index":2,"codec_name":"subrip"}],"format":{"duration":2914.72}}
+        """;
+
+        var track = Assert.Single(FfprobeJsonParser.Parse(json, "x.mkv"));
+
+        Assert.Equal(TimeSpan.FromSeconds(2914.72), track.VideoDuration);
+    }
+
     [Theory]
     [InlineData("""{"streams":[{"index":2}]}""")]
     [InlineData("""{"streams":[{"index":2}],"format":{}}""")]

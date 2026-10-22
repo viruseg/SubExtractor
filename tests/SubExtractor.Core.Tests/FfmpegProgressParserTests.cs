@@ -22,6 +22,7 @@ public class FfmpegProgressParserTests
     [InlineData("out_time_us=")]
     [InlineData("out_time_us=9223372036854775807")]
     [InlineData("out_time=not-a-time")]
+    [InlineData("out_time=00:09:37,577")]
     [InlineData("garbage")]
     public void TryParsePosition_ignores_unusable_lines(string line)
         => Assert.False(FfmpegProgressParser.TryParsePosition(line, out _));

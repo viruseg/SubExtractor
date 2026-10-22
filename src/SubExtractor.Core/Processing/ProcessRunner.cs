@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 using System.Text;
 
 namespace SubExtractor.Core.Processing;
@@ -47,11 +48,12 @@ public sealed class ProcessRunner : IProcessRunner
         try
         {
             await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            await Task.WhenAll(standardOutput, standardError).ConfigureAwait(false);
 
             return new ProcessResult(
                 process.ExitCode,
-                await standardOutput.ConfigureAwait(false),
-                await standardError.ConfigureAwait(false));
+                standardOutput.Result,
+                standardError.Result);
         }
         catch (OperationCanceledException)
         {
@@ -59,15 +61,7 @@ public sealed class ProcessRunner : IProcessRunner
 
             try
             {
-                await standardOutput.ConfigureAwait(false);
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                await standardError.ConfigureAwait(false);
+                await Task.WhenAll(standardOutput, standardError).ConfigureAwait(false);
             }
             catch
             {
@@ -88,10 +82,29 @@ public sealed class ProcessRunner : IProcessRunner
         }
 
         var output = new StringBuilder();
+        Exception? callbackException = null;
         while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
         {
             output.AppendLine(line);
-            onStandardOutputLine(line);
+
+            if (callbackException is not null)
+            {
+                continue;
+            }
+
+            try
+            {
+                onStandardOutputLine(line);
+            }
+            catch (Exception ex)
+            {
+                callbackException = ex;
+            }
+        }
+
+        if (callbackException is not null)
+        {
+            ExceptionDispatchInfo.Capture(callbackException).Throw();
         }
 
         return output.ToString();

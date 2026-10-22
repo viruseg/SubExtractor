@@ -87,6 +87,28 @@ public class ProcessRunnerTests
         Assert.Contains("second", result.StandardOutput);
     }
 
+    [Fact]
+    public async Task RunAsync_throwing_callback_does_not_stall_the_process()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var run = new ProcessRunner().RunAsync(
+            Path.Combine(Environment.SystemDirectory, "cmd.exe"),
+            ["/c", "for /L %i in (1,1,20000) do @echo 0123456789012345678901234567890123456789"],
+            _ => throw new InvalidOperationException("callback boom"),
+            cancellation.Token);
+
+        try
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => run.WaitAsync(TimeSpan.FromSeconds(5)));
+        }
+        finally
+        {
+            cancellation.Cancel();
+            try { await run; } catch { }
+        }
+    }
+
     private static async Task<bool> WaitForProcessStateAsync(string processName, bool running)
     {
         for (var attempt = 0; attempt < 50; attempt++)
