@@ -106,44 +106,59 @@
                                               VerticalScrollBarVisibility="Disabled"
                                               HorizontalScrollMode="Enabled"
                                               VerticalScrollMode="Disabled"
+                                              Padding="0,0,12,0"
                                               IsTabStop="False">
-                                    <ItemsRepeater ItemsSource="{x:Bind ViewModel.Columns, Mode=OneWay}"
-                                                   HorizontalAlignment="Left">
-                                        <ItemsRepeater.Layout>
-                                            <StackLayout Orientation="Horizontal" />
-                                        </ItemsRepeater.Layout>
-                                        <ItemsRepeater.ItemTemplate>
-                                            <DataTemplate x:DataType="viewModels:TableColumnViewModel">
-                                                <Grid Width="{x:Bind Width}"
-                                                      MinHeight="40"
-                                                      Padding="12,8"
-                                                      ColumnSpacing="8">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="*" />
-                                                    </Grid.ColumnDefinitions>
-
-                                                    <CheckBox Grid.Column="0"
-                                                              MinWidth="0"
-                                                              Padding="0"
-                                                              VerticalAlignment="Center"
-                                                              IsThreeState="True"
-                                                              IsChecked="{x:Bind SelectionState, Mode=OneWay}"
-                                                              IsEnabled="{x:Bind IsSelectable, Mode=OneWay}"
-                                                              Visibility="{x:Bind CheckBoxVisibility}"
-                                                              AutomationProperties.Name="Select column"
-                                                              Tag="{x:Bind}"
-                                                              Click="ColumnHeaderCheckBox_Click" />
-                                                    <TextBlock Grid.Column="1"
-                                                               Text="{x:Bind HeaderLabel}"
-                                                               Visibility="{x:Bind LabelVisibility}"
-                                                               ToolTipService.ToolTip="{x:Bind HeaderLabel}"
-                                                               VerticalAlignment="Center"
-                                                               TextTrimming="CharacterEllipsis" />
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ItemsRepeater.ItemTemplate>
-                                    </ItemsRepeater>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <!-- NOTE: must match MainViewModel.GutterWidth -->
+                                            <ColumnDefinition Width="3" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ItemsRepeater Grid.Column="1"
+                                                       ItemsSource="{x:Bind ViewModel.Columns, Mode=OneWay}"
+                                                       HorizontalAlignment="Left">
+                                            <ItemsRepeater.Layout>
+                                                <StackLayout Orientation="Horizontal" />
+                                            </ItemsRepeater.Layout>
+                                            <ItemsRepeater.ItemTemplate>
+                                                <DataTemplate x:DataType="viewModels:TableColumnViewModel">
+                                                    <Grid Width="{x:Bind Width}">
+                                                        <Button Visibility="{x:Bind HeaderButtonVisibility}"
+                                                                Style="{StaticResource TableHeaderButtonStyle}"
+                                                                Tag="{x:Bind}"
+                                                                Click="ColumnHeader_Click"
+                                                                AutomationProperties.Name="{x:Bind HeaderLabel}"
+                                                                ToolTipService.ToolTip="{x:Bind HeaderLabel}">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="3" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <Border Grid.Column="0"
+                                                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                                        Opacity="{x:Bind AccentBarOpacity, Mode=OneWay}"
+                                                                        Visibility="{x:Bind AccentBarVisibility, Mode=OneWay}" />
+                                                                <StackPanel Grid.Column="1" Padding="12,8,8,8" Spacing="1">
+                                                                    <TextBlock Text="{x:Bind PrimaryLabel}"
+                                                                               Style="{StaticResource TableHeaderTitleStyle}" />
+                                                                    <TextBlock Text="{x:Bind SecondaryLabel}"
+                                                                               Style="{StaticResource TableHeaderLanguageStyle}"
+                                                                               Visibility="{x:Bind SecondaryLabelVisibility, Mode=OneWay}" />
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </Button>
+                                                        <Grid Visibility="{x:Bind HeaderLabelVisibility}">
+                                                            <TextBlock Text="{x:Bind PrimaryLabel}"
+                                                                       Style="{StaticResource TableHeaderTitleStyle}"
+                                                                       Padding="12,8,8,8"
+                                                                       VerticalAlignment="Center"
+                                                                       ToolTipService.ToolTip="{x:Bind HeaderLabel}" />
+                                                        </Grid>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsRepeater.ItemTemplate>
+                                        </ItemsRepeater>
+                                    </Grid>
                                 </ScrollViewer>
                             </Border>
 
@@ -153,7 +168,9 @@
                                           VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollMode="Enabled"
                                           VerticalScrollMode="Enabled"
-                                          ViewChanged="BodyScrollViewer_ViewChanged">
+                                          ViewChanged="BodyScrollViewer_ViewChanged"
+                                          SizeChanged="BodyScrollViewer_SizeChanged"
+                                          LayoutUpdated="BodyScrollViewer_LayoutUpdated">
                                 <ItemsRepeater ItemsSource="{x:Bind ViewModel.Rows, Mode=OneWay}"
                                                HorizontalAlignment="Left"
                                                VerticalAlignment="Top">
@@ -162,53 +179,95 @@
                                     </ItemsRepeater.Layout>
                                     <ItemsRepeater.ItemTemplate>
                                         <DataTemplate x:DataType="viewModels:TableRowViewModel">
-                                            <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                                                    BorderThickness="0,0,0,1">
-                                                <ItemsRepeater ItemsSource="{x:Bind Cells}">
-                                                    <ItemsRepeater.Layout>
-                                                        <StackLayout Orientation="Horizontal" />
-                                                    </ItemsRepeater.Layout>
-                                                    <ItemsRepeater.ItemTemplate>
-                                                        <DataTemplate x:DataType="viewModels:TableCellViewModel">
-                                                            <Grid Width="{x:Bind Width}"
-                                                                  MinHeight="44"
-                                                                  Padding="12,6"
-                                                                  ColumnSpacing="8">
-                                                                <Grid.ColumnDefinitions>
-                                                                    <ColumnDefinition Width="Auto" />
-                                                                    <ColumnDefinition Width="*" />
-                                                                </Grid.ColumnDefinitions>
-                                                                <Grid.RowDefinitions>
-                                                                    <RowDefinition Height="Auto" />
-                                                                    <RowDefinition Height="Auto" />
-                                                                </Grid.RowDefinitions>
-
-                                                                <CheckBox Grid.Column="0"
-                                                                          Grid.Row="0"
-                                                                          Grid.RowSpan="2"
-                                                                          MinWidth="0"
-                                                                          Padding="0"
-                                                                          VerticalAlignment="Center"
-                                                                          IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
-                                                                          Visibility="{x:Bind CheckBoxVisibility}" />
-                                                                <TextBlock Grid.Column="1"
-                                                                           Grid.Row="0"
-                                                                           Text="{x:Bind FileName}"
-                                                                           Visibility="{x:Bind FileNameVisibility}"
-                                                                           VerticalAlignment="Center"
-                                                                           TextTrimming="CharacterEllipsis" />
-                                                                <TextBlock Grid.Column="1"
-                                                                           Grid.Row="1"
-                                                                           Text="{x:Bind StatusText}"
-                                                                           Visibility="{x:Bind StatusVisibility}"
-                                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                                           FontSize="12"
-                                                                           TextTrimming="CharacterEllipsis" />
-                                                            </Grid>
-                                                        </DataTemplate>
-                                                    </ItemsRepeater.ItemTemplate>
-                                                </ItemsRepeater>
-                                            </Border>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <!-- NOTE: must match MainViewModel.GutterWidth -->
+                                                    <ColumnDefinition Width="3" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0"
+                                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                        Visibility="{x:Bind SelectionBarVisibility, Mode=OneWay}" />
+                                                <Border Grid.Column="1"
+                                                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                                        BorderThickness="0,0,0,1">
+                                                    <ItemsRepeater ItemsSource="{x:Bind Cells}">
+                                                        <ItemsRepeater.Layout>
+                                                            <StackLayout Orientation="Horizontal" />
+                                                        </ItemsRepeater.Layout>
+                                                        <ItemsRepeater.ItemTemplate>
+                                                            <DataTemplate x:DataType="viewModels:TableCellViewModel">
+                                                                <Grid Width="{x:Bind Width}" Height="36">
+                                                                    <ToggleButton Visibility="{x:Bind TrackCellVisibility}"
+                                                                                  Style="{StaticResource TrackToggleStyle}"
+                                                                                  IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
+                                                                                  IsThreeState="False"
+                                                                                  IsEnabled="{x:Bind HasTrack, Mode=OneWay}"
+                                                                                  AutomationProperties.Name="{x:Bind AutomationName, Mode=OneWay}">
+                                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                                            <Grid Width="17" Height="17">
+                                                                                <Border Visibility="{x:Bind UncheckedIndicatorVisibility, Mode=OneWay}"
+                                                                                        BorderBrush="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                                        BorderThickness="1.5"
+                                                                                        CornerRadius="5" />
+                                                                                <Border Visibility="{x:Bind CheckedIndicatorVisibility, Mode=OneWay}"
+                                                                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                                                        BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                                                                                        BorderThickness="1.5"
+                                                                                        CornerRadius="5">
+                                                                                    <Path Data="M 2.5,7 L 5.5,10 L 10.5,4"
+                                                                                          Stroke="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                                                          StrokeThickness="1.6"
+                                                                                          StrokeStartLineCap="Round"
+                                                                                          StrokeEndLineCap="Round" />
+                                                                                </Border>
+                                                                            </Grid>
+                                                                            <TextBlock Text="&#x2014;"
+                                                                                       FontSize="12"
+                                                                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                                                       Visibility="{x:Bind EmptyMarkVisibility, Mode=OneWay}"
+                                                                                       VerticalAlignment="Center"
+                                                                                       Margin="0,0,1,0" />
+                                                                            <Border Style="{StaticResource FormatChipStyle}"
+                                                                                    Visibility="{x:Bind FormatChipVisibility, Mode=OneWay}">
+                                                                                <TextBlock Text="{x:Bind FormatLabel, Mode=OneWay}"
+                                                                                           FontSize="10"
+                                                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                                            </Border>
+                                                                        </StackPanel>
+                                                                    </ToggleButton>
+                                                                    <Button Visibility="{x:Bind FileCellVisibility}"
+                                                                            Style="{StaticResource TableFileCellButtonStyle}"
+                                                                            Padding="12,0,8,0"
+                                                                            Tag="{x:Bind}"
+                                                                            Click="FileCell_Click"
+                                                                            AutomationProperties.Name="{x:Bind FileName}">
+                                                                        <Grid ColumnSpacing="8">
+                                                                            <Grid.ColumnDefinitions>
+                                                                                <ColumnDefinition Width="*" />
+                                                                                <ColumnDefinition Width="Auto" />
+                                                                            </Grid.ColumnDefinitions>
+                                                                            <TextBlock Grid.Column="0"
+                                                                                       Text="{x:Bind FileName}"
+                                                                                       Style="{StaticResource TableFileNameStyle}"
+                                                                                       TextTrimming="CharacterEllipsis"
+                                                                                       ToolTipService.ToolTip="{x:Bind FileName}" />
+                                                                            <TextBlock Grid.Column="1"
+                                                                                       Text="{x:Bind StatusText}"
+                                                                                       Style="{StaticResource TableStatusStyle}"
+                                                                                       Visibility="{x:Bind NoSubtitlesVisibility, Mode=OneWay}" />
+                                                                            <TextBlock Grid.Column="1"
+                                                                                       Text="{x:Bind StatusText}"
+                                                                                       Style="{StaticResource TableCriticalStatusStyle}"
+                                                                                       Visibility="{x:Bind ProbeFailedVisibility, Mode=OneWay}" />
+                                                                        </Grid>
+                                                                    </Button>
+                                                                </Grid>
+                                                            </DataTemplate>
+                                                        </ItemsRepeater.ItemTemplate>
+                                                    </ItemsRepeater>
+                                                </Border>
+                                            </Grid>
                                         </DataTemplate>
                                     </ItemsRepeater.ItemTemplate>
                                 </ItemsRepeater>

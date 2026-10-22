@@ -369,6 +369,7 @@ public sealed partial class MainWindow : Window
             }
 
             ViewModel.SetVideos(result.Videos);
+            UpdateFileColumnWidth();
             var trackCount = result.Videos.Sum(video => video.Tracks.Count);
 
             if (result.Videos.Count == 0)
@@ -568,13 +569,30 @@ public sealed partial class MainWindow : Window
         _services.TextRemoval.SelectFolder(folder);
     }
 
-    private void ColumnHeaderCheckBox_Click(object sender, RoutedEventArgs e)
+    private void ColumnHeader_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is CheckBox { Tag: TableColumnViewModel column })
+        if (sender is FrameworkElement { Tag: TableColumnViewModel column })
         {
             column.ToggleAll();
         }
     }
+
+    private void FileCell_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: TableCellViewModel cell })
+        {
+            cell.Row?.ToggleAll();
+        }
+    }
+
+    private void BodyScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        UpdateFileColumnWidth();
+
+    private void BodyScrollViewer_LayoutUpdated(object sender, object e) =>
+        UpdateFileColumnWidth();
+
+    private void UpdateFileColumnWidth() =>
+        ViewModel.SetFileColumnWidth(BodyScrollViewer.ViewportWidth);
 
     private void BodyScrollViewer_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
     {

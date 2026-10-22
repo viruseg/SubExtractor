@@ -8,18 +8,25 @@ namespace SubExtractor.ViewModels;
 
 public sealed class MainViewModel : INotifyPropertyChanged
 {
-    private const double FileColumnWidth = 280;
-    private const double SubtitleColumnWidth = 180;
+    public const double MinFileColumnWidth = 260;
+    public const double GutterWidth = 3;
 
     private bool _canExtract;
     private bool _hasResults;
     private string _emptyStateText = "Choose a folder to scan.";
+    private double _fileColumnWidth = 320;
+    private double _fileContentWidth;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<TableColumnViewModel> Columns { get; } = [];
 
     public ObservableCollection<TableRowViewModel> Rows { get; } = [];
+
+    public double SubtitleColumnsWidth =>
+        Columns
+            .Where(column => column.Kind == TableCellKind.Subtitle)
+            .Sum(column => column.Width);
 
     public bool CanExtract
     {
@@ -91,7 +98,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Rows.Clear();
 
         var fileColumn = new TableColumnViewModel(
-            TableCellKind.File, string.Empty, "File", FileColumnWidth);
+            TableCellKind.File, string.Empty, "File", string.Empty, _fileColumnWidth);
         Columns.Add(fileColumn);
 
         var subtitleColumns = ColumnBuilder
@@ -99,8 +106,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             .Select(definition => new TableColumnViewModel(
                 TableCellKind.Subtitle,
                 definition.Key,
-                definition.HeaderLabel,
-                SubtitleColumnWidth))
+                definition.DisplayTitle,
+                definition.DisplayLanguage,
+                ColumnWidthPolicy.Measure(definition.DisplayTitle, definition.DisplayLanguage)))
             .ToList();
 
         foreach (var column in subtitleColumns)
@@ -112,14 +120,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
         foreach (var video in videos)
         {
             var status = video.Status == ProbeStatus.Failed
-                ? "Probe failed"
+                ? FileStatus.ProbeFailed
                 : video.Tracks.Count == 0
-                    ? "No subtitles"
-                    : null;
+                    ? FileStatus.NoSubtitles
+                    : FileStatus.None;
 
             var cells = new List<TableCellViewModel>(subtitleColumns.Count + 1)
             {
-                new(TableCellKind.File, Path.GetFileName(video.FilePath), status, [], FileColumnWidth),
+                new(TableCellKind.File, Path.GetFileName(video.FilePath), status, [], _fileColumnWidth),
             };
 
             foreach (var column in subtitleColumns)
@@ -130,7 +138,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                     .ToList();
 
                 var cell = new TableCellViewModel(
-                    TableCellKind.Subtitle, string.Empty, null, tracks, SubtitleColumnWidth);
+                    TableCellKind.Subtitle, string.Empty, FileStatus.None, tracks, column.Width);
                 cells.Add(cell);
 
                 if (tracks.Count > 0)
@@ -143,7 +151,38 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
 
         HasResults = Rows.Count > 0;
+        _fileContentWidth = Rows.Count == 0
+            ? 0
+            : Rows.Max(row =>
+                ColumnWidthPolicy.MeasureFileCell(row.FileCell.FileName, row.FileCell.StatusText));
         UpdateCanExtract();
+    }
+
+    public void SetFileColumnWidth(double viewportWidth)
+    {
+        if (viewportWidth <= 0)
+        {
+            return;
+        }
+
+        var upper = Math.Max(viewportWidth - GutterWidth - SubtitleColumnsWidth, MinFileColumnWidth);
+        var width = Math.Min(Math.Max(_fileContentWidth, MinFileColumnWidth), upper);
+        if (Math.Abs(width - _fileColumnWidth) < 0.5)
+        {
+            return;
+        }
+
+        _fileColumnWidth = width;
+
+        foreach (var column in Columns.Where(column => column.Kind == TableCellKind.File))
+        {
+            column.Width = width;
+        }
+
+        foreach (var row in Rows)
+        {
+            row.FileCell.Width = width;
+        }
     }
 
     private void Column_SelectionChanged(object? sender, EventArgs e) => UpdateCanExtract();
