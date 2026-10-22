@@ -108,6 +108,11 @@ public sealed partial class MainWindow : Window
         ContentHost.IsHitTestVisible = isEnabled;
         SettingsButton.IsEnabled = isEnabled;
         ExtractAllButton.IsEnabled = _isExtracting || (isEnabled && ViewModel.CanExtract);
+
+        if (_extractionPhase == ExtractionPhase.Idle)
+        {
+            ApplyExtractionButtonVisuals();
+        }
     }
 
     private void StatusButton_Click(object sender, RoutedEventArgs e)
@@ -456,22 +461,31 @@ public sealed partial class MainWindow : Window
             ExtractAllButton.ClearValue(Control.BackgroundProperty);
             ExtractProgressFill.Visibility = Visibility.Collapsed;
             ExtractButtonLabel.Text = "Extract All";
+            ExtractButtonLabel.Foreground = (Brush)Application.Current.Resources[
+                ExtractAllButton.IsEnabled
+                    ? "TextOnAccentFillColorPrimaryBrush"
+                    : "TextFillColorDisabledBrush"];
             AutomationProperties.SetName(ExtractAllButton, "Extract all subtitles");
             return;
         }
 
         ExtractAllButton.Style =
             (Style)Application.Current.Resources["ExtractionProgressButtonStyle"];
+        ExtractButtonLabel.Foreground =
+            (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"];
 
         var stopping = _extractionPhase == ExtractionPhase.Stopping;
-        var stop = stopping ||
-                   ExtractAllButton.IsPointerOver ||
-                   ExtractAllButton.FocusState == FocusState.Keyboard;
+        var xamlRoot = Content.XamlRoot;
+        var hasKeyboardFocus = xamlRoot is not null &&
+                               ExtractAllButton.FocusState == FocusState.Keyboard &&
+                               ReferenceEquals(
+                                   FocusManager.GetFocusedElement(xamlRoot), ExtractAllButton);
+        var stop = stopping || ExtractAllButton.IsPointerOver || hasKeyboardFocus;
 
         if (stop)
         {
             ExtractAllButton.Background =
-                (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"];
+                (Brush)Application.Current.Resources["ExtractionStopBrush"];
             ExtractProgressFill.Visibility = Visibility.Collapsed;
             ExtractButtonLabel.Text = stopping ? "Stopping…" : "Stop";
             AutomationProperties.SetName(
@@ -483,10 +497,11 @@ public sealed partial class MainWindow : Window
             (Brush)Application.Current.Resources["ControlFillColorDefaultBrush"];
         ExtractProgressFill.Visibility = Visibility.Visible;
 
-        var percent = (int)Math.Round(Math.Clamp(Log.Progress ?? 0, 0, 100));
+        var percent = (int)Math.Round(
+            Math.Clamp(Log.Progress ?? 0, 0, 100), MidpointRounding.AwayFromZero);
         ExtractButtonLabel.Text = $"{percent}%";
         ExtractProgressFill.Width = ExtractButtonSurface.ActualWidth * percent / 100;
-        AutomationProperties.SetName(ExtractAllButton, $"Extract all subtitles — {percent}% complete");
+        AutomationProperties.SetName(ExtractAllButton, $"Stop extraction — {percent}% complete");
     }
 
     private void ExtractAllButton_PointerEntered(object sender, PointerRoutedEventArgs e) =>

@@ -12,6 +12,9 @@
                 <!-- Other merged dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
 
+            <SolidColorBrush x:Key="ExtractionProgressFillBrush" Color="#0F7B0F" />
+            <SolidColorBrush x:Key="ExtractionStopBrush" Color="#C42B1C" />
+
             <Style x:Key="TableHeaderTitleStyle" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="13" />
                 <Setter Property="FontWeight" Value="SemiBold" />

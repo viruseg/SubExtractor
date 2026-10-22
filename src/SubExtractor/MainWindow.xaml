@@ -329,7 +329,7 @@
                             HorizontalAlignment="Left"
                             VerticalAlignment="Stretch"
                             Visibility="Collapsed"
-                            Background="{ThemeResource SystemFillColorSuccessBrush}"
+                            Background="{ThemeResource ExtractionProgressFillBrush}"
                             CornerRadius="4" />
                     <TextBlock x:Name="ExtractButtonLabel"
                                Text="Extract All"
