@@ -25,7 +25,7 @@ public static class FfmpegHealthCheck
         {
             var ffmpeg = manager.ReadLocalVersionAsync(timeout.Token);
             var ffprobe = manager.ReadLocalProbeVersionAsync(timeout.Token);
-            var versions = await Task.WhenAll(ffmpeg, ffprobe);
+            var versions = await Task.WhenAll(ffmpeg, ffprobe).ConfigureAwait(false);
             return versions[0] is not null && versions[1] is not null;
         }
         catch (OperationCanceledException)
