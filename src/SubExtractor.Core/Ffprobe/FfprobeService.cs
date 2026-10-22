@@ -22,7 +22,7 @@ public sealed class FfprobeService : ISubtitleProbe
         {
             "-v", "error",
             "-select_streams", "s",
-            "-show_entries", "stream=index,codec_name:stream_tags=title,language",
+            "-show_entries", "stream=index,codec_name:stream_tags=title,language:format=duration",
             "-of", "json",
             "-i", videoPath,
         };

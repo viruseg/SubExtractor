@@ -5,4 +5,5 @@ public sealed record SubtitleTrack(
     int StreamIndex,
     string CodecName,
     string? Title,
-    string? Language);
+    string? Language,
+    TimeSpan? VideoDuration = null);

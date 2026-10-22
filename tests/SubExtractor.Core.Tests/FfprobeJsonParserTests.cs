@@ -37,4 +37,26 @@ public class FfprobeJsonParserTests
     [Fact]
     public void Parse_throws_on_malformed_json()
         => Assert.ThrowsAny<JsonException>(() => FfprobeJsonParser.Parse("{", "x.mkv"));
+
+    [Fact]
+    public void Parse_reads_video_duration_from_format()
+    {
+        const string json = """
+        {"streams":[{"index":2,"codec_name":"subrip"}],"format":{"duration":"2914.720000"}}
+        """;
+
+        var track = Assert.Single(FfprobeJsonParser.Parse(json, "x.mkv"));
+
+        Assert.Equal(TimeSpan.FromSeconds(2914.72), track.VideoDuration);
+    }
+
+    [Theory]
+    [InlineData("""{"streams":[{"index":2}]}""")]
+    [InlineData("""{"streams":[{"index":2}],"format":{}}""")]
+    [InlineData("""{"streams":[{"index":2}],"format":{"duration":"N/A"}}""")]
+    [InlineData("""{"streams":[{"index":2}],"format":{"duration":"0"}}""")]
+    [InlineData("""{"streams":[{"index":2}],"format":{"duration":"-5"}}""")]
+    [InlineData("""{"streams":[{"index":2}],"format":{"duration":"abc"}}""")]
+    public void Parse_leaves_duration_null_when_format_duration_is_unusable(string json)
+        => Assert.Null(Assert.Single(FfprobeJsonParser.Parse(json, "x.mkv")).VideoDuration);
 }

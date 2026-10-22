@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using SubExtractor.Core.Models;
 
@@ -17,6 +18,7 @@ public static class FfprobeJsonParser
         }
 
         var tracks = new List<SubtitleTrack>();
+        var duration = ReadDuration(document.RootElement);
         foreach (var stream in streams.EnumerateArray())
         {
             if (stream.ValueKind != JsonValueKind.Object ||
@@ -39,7 +41,7 @@ public static class FfprobeJsonParser
                 language = ReadString(tags, "language");
             }
 
-            tracks.Add(new SubtitleTrack(videoPath, index, codecName, title, language));
+            tracks.Add(new SubtitleTrack(videoPath, index, codecName, title, language, duration));
         }
 
         return tracks;
@@ -49,4 +51,44 @@ public static class FfprobeJsonParser
         element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;
+
+    private static TimeSpan? ReadDuration(JsonElement root)
+    {
+        if (!root.TryGetProperty("format", out var format) ||
+            format.ValueKind != JsonValueKind.Object ||
+            !format.TryGetProperty("duration", out var duration))
+        {
+            return null;
+        }
+
+        double seconds;
+        if (duration.ValueKind == JsonValueKind.String)
+        {
+            if (!double.TryParse(
+                    duration.GetString(),
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out seconds))
+            {
+                return null;
+            }
+        }
+        else if (duration.ValueKind == JsonValueKind.Number)
+        {
+            if (!duration.TryGetDouble(out seconds))
+            {
+                return null;
+            }
+        }
+        else
+        {
+            return null;
+        }
+
+        return seconds > 0 &&
+               double.IsFinite(seconds) &&
+               seconds <= TimeSpan.MaxValue.TotalSeconds
+            ? TimeSpan.FromSeconds(seconds)
+            : null;
+    }
 }

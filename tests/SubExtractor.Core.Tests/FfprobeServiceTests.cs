@@ -19,6 +19,7 @@ public class FfprobeServiceTests
         Assert.Equal("ffprobe.exe", Path.GetFileName(runner.LastExecutable));
         Assert.Contains("-select_streams", runner.LastArguments!);
         Assert.Contains("-of", runner.LastArguments!);
+        Assert.Contains(runner.LastArguments!, argument => argument.Contains("format=duration"));
         Assert.Contains(@"C:\v\Movie.mkv", runner.LastArguments!);
     }
 
