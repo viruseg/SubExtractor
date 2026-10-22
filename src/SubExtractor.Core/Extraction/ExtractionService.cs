@@ -45,8 +45,14 @@ public sealed class ExtractionService
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                Action<double>? onProgress = plan.Track.VideoDuration is { Ticks: > 0 }
+                    ? fraction => progress.TrackProgress(
+                        file.Key, completedInFile, totalInFile, fraction,
+                        completedOverall, totalOverall)
+                    : null;
+
                 var error = await ExtractTrackAsync(
-                        plan, subtitleTimeShift, textRemovalRules, cancellationToken)
+                        plan, subtitleTimeShift, textRemovalRules, onProgress, cancellationToken)
                     .ConfigureAwait(false);
                 completedInFile++;
                 completedOverall++;
@@ -75,14 +81,36 @@ public sealed class ExtractionService
         OutputPlan plan,
         TimeSpan subtitleTimeShift,
         IReadOnlyList<string> textRemovalRules,
+        Action<double>? onProgress,
         CancellationToken cancellationToken)
     {
         var tempPath = plan.FinalPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
 
         try
         {
+            var duration = plan.Track.VideoDuration;
+            var lastFraction = -1.0;
+            Action<string>? onLine = onProgress is null || duration is not { Ticks: > 0 } trackDuration
+                ? null
+                : line =>
+                {
+                    if (!FfmpegProgressParser.TryParsePosition(line, out var position))
+                    {
+                        return;
+                    }
+
+                    var fraction = Math.Clamp(
+                        position.Ticks / (double)trackDuration.Ticks, 0, 1);
+                    if (fraction > lastFraction)
+                    {
+                        lastFraction = fraction;
+                        onProgress(fraction);
+                    }
+                };
+
             var result = await _processRunner
-                .RunAsync(_ffmpegPath, BuildArguments(plan, tempPath), cancellationToken)
+                .RunAsync(
+                    _ffmpegPath, BuildArguments(plan, tempPath), onLine, cancellationToken)
                 .ConfigureAwait(false);
 
             if (result.ExitCode != 0)
@@ -129,6 +157,8 @@ public sealed class ExtractionService
         "-nostdin",
         "-hide_banner",
         "-loglevel", "error",
+        "-progress", "pipe:1",
+        "-nostats",
         "-y",
         "-i", plan.Track.VideoPath,
         "-map", $"0:{plan.Track.StreamIndex}",

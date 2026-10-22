@@ -146,7 +146,7 @@ public class ExtractionServiceTests
         await new ExtractionService(new WritingProcessRunner("SUB"), "ffmpeg.exe")
             .ExtractAsync(plans, TimeSpan.Zero, sink, CancellationToken.None);
 
-        Assert.Equal([(1, 2, 1, 2), (2, 2, 2, 2)], sink.TrackProgress);
+        Assert.Equal([(1, 2, 1, 2), (2, 2, 2, 2)], sink.FinishedTrackProgress);
     }
 
     [Fact]
@@ -296,6 +296,64 @@ public class ExtractionServiceTests
         Assert.Equal(content, File.ReadAllText(final));
     }
 
+    [Fact]
+    public async Task Extract_reports_live_progress_from_ffmpeg_position()
+    {
+        using var temp = new TempDirectory();
+        var video = Path.Combine(temp.Path, "Movie.mkv");
+        var plan = new OutputPlan(
+            new SubtitleTrack(video, 2, "subrip", null, "eng", TimeSpan.FromSeconds(100)),
+            Path.Combine(temp.Path, "Movie.eng.srt"), ".srt", "srt", SubtitleWriteMode.Copy, false);
+        var sink = new RecordingExtractionSink();
+        var runner = new ReportingProcessRunner([0, 25, 50, 80, 150]);
+
+        await new ExtractionService(runner, "ffmpeg.exe")
+            .ExtractAsync([plan], TimeSpan.Zero, sink, CancellationToken.None);
+
+        Assert.Equal([0.0, 0.25, 0.5, 0.8, 1.0],
+            sink.LiveProgress.Select(entry => entry.CurrentFraction));
+        Assert.Contains("-progress", runner.Calls[0]);
+        Assert.Contains("pipe:1", runner.Calls[0]);
+    }
+
+    [Fact]
+    public async Task Extract_skips_live_progress_when_video_duration_is_unknown()
+    {
+        using var temp = new TempDirectory();
+        var plan = new OutputPlan(
+            new SubtitleTrack(Path.Combine(temp.Path, "Movie.mkv"), 2, "subrip", null, "eng"),
+            Path.Combine(temp.Path, "Movie.eng.srt"), ".srt", "srt", SubtitleWriteMode.Copy, false);
+        var sink = new RecordingExtractionSink();
+
+        await new ExtractionService(new ReportingProcessRunner([50]), "ffmpeg.exe")
+            .ExtractAsync([plan], TimeSpan.Zero, sink, CancellationToken.None);
+
+        Assert.Empty(sink.LiveProgress);
+        Assert.Contains("TrackFinished:Movie.mkv:1/1:1/1", sink.Events);
+    }
+
+    [Fact]
+    public async Task Extract_reports_completed_file_tracks_to_live_progress()
+    {
+        using var temp = new TempDirectory();
+        var video = Path.Combine(temp.Path, "Movie.mkv");
+        var duration = TimeSpan.FromSeconds(100);
+        var plans = new[]
+        {
+            new OutputPlan(new SubtitleTrack(video, 2, "subrip", null, "eng", duration),
+                Path.Combine(temp.Path, "Movie.eng.srt"), ".srt", "srt", SubtitleWriteMode.Copy, false),
+            new OutputPlan(new SubtitleTrack(video, 3, "subrip", null, "rus", duration),
+                Path.Combine(temp.Path, "Movie.rus.srt"), ".srt", "srt", SubtitleWriteMode.Copy, false),
+        };
+        var sink = new RecordingExtractionSink();
+
+        await new ExtractionService(new ReportingProcessRunner([50]), "ffmpeg.exe")
+            .ExtractAsync(plans, TimeSpan.Zero, sink, CancellationToken.None);
+
+        Assert.Equal([(0, 0.5), (1, 0.5)],
+            sink.LiveProgress.Select(entry => (entry.CompletedInFile, entry.CurrentFraction)));
+    }
+
     private sealed class WritingProcessRunner(string content, int exitCode = 0) : IProcessRunner
     {
         public List<IReadOnlyList<string>> Calls { get; } = [];
@@ -349,19 +407,49 @@ public class ExtractionServiceTests
         }
     }
 
+    private sealed class ReportingProcessRunner(double[] positions) : IProcessRunner
+    {
+        public List<IReadOnlyList<string>> Calls { get; } = [];
+
+        public Task<ProcessResult> RunAsync(string executablePath,
+            IReadOnlyList<string> arguments, CancellationToken ct)
+            => RunAsync(executablePath, arguments, null, ct);
+
+        public Task<ProcessResult> RunAsync(string executablePath,
+            IReadOnlyList<string> arguments, Action<string>? onStandardOutputLine,
+            CancellationToken ct)
+        {
+            Calls.Add(arguments);
+            foreach (var position in positions)
+            {
+                onStandardOutputLine?.Invoke($"out_time_us={(long)(position * 1_000_000)}");
+            }
+
+            File.WriteAllText(arguments[^1], "SUB");
+            return Task.FromResult(new ProcessResult(0, "", ""));
+        }
+    }
+
     private sealed class RecordingExtractionSink : IExtractionProgressSink
     {
         public List<string> Failures { get; } = [];
-        public List<(int InFile, int InFileTotal, int Overall, int OverallTotal)> TrackProgress { get; } = [];
+        public List<(int InFile, int InFileTotal, int Overall, int OverallTotal)> FinishedTrackProgress { get; } = [];
+        public List<(string File, int CompletedInFile, int TotalInFile, double CurrentFraction,
+            int CompletedOverall, int TotalOverall)> LiveProgress { get; } = [];
         public List<string> Events { get; } = [];
 
         public void FileStarted(string videoPath, int completedOverall, int totalOverall)
             => Events.Add($"FileStarted:{Path.GetFileName(videoPath)}:{completedOverall}/{totalOverall}");
 
+        public void TrackProgress(string videoPath, int completedInFile, int totalInFile,
+            double currentFraction, int completedOverall, int totalOverall)
+            => LiveProgress.Add((Path.GetFileName(videoPath), completedInFile, totalInFile,
+                currentFraction, completedOverall, totalOverall));
+
         public void TrackFinished(string videoPath, int completedInFile, int totalInFile,
             int completedOverall, int totalOverall)
         {
-            TrackProgress.Add((completedInFile, totalInFile, completedOverall, totalOverall));
+            FinishedTrackProgress.Add((completedInFile, totalInFile, completedOverall, totalOverall));
             Events.Add(
                 $"TrackFinished:{Path.GetFileName(videoPath)}:{completedInFile}/{totalInFile}:{completedOverall}/{totalOverall}");
         }

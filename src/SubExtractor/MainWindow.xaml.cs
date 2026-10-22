@@ -497,11 +497,11 @@ public sealed partial class MainWindow : Window
             (Brush)Application.Current.Resources["ControlFillColorDefaultBrush"];
         ExtractProgressFill.Visibility = Visibility.Visible;
 
-        var percent = (int)Math.Round(
-            Math.Clamp(Log.Progress ?? 0, 0, 100), MidpointRounding.AwayFromZero);
-        ExtractButtonLabel.Text = $"{percent}%";
+        var percent = Math.Clamp(Log.Progress ?? 0, 0, 100);
+        var rounded = (int)Math.Round(percent, MidpointRounding.AwayFromZero);
+        ExtractButtonLabel.Text = $"{rounded}%";
         ExtractProgressFill.Width = ExtractButtonSurface.ActualWidth * percent / 100;
-        AutomationProperties.SetName(ExtractAllButton, $"Stop extraction — {percent}% complete");
+        AutomationProperties.SetName(ExtractAllButton, $"Stop extraction — {rounded}% complete");
     }
 
     private void ExtractAllButton_PointerEntered(object sender, PointerRoutedEventArgs e) =>

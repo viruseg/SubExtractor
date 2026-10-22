@@ -4,6 +4,14 @@ public interface IExtractionProgressSink
 {
     void FileStarted(string videoPath, int completedOverall, int totalOverall);
 
+    void TrackProgress(
+        string videoPath,
+        int completedInFile,
+        int totalInFile,
+        double currentFraction,
+        int completedOverall,
+        int totalOverall);
+
     void TrackFinished(
         string videoPath,
         int completedInFile,

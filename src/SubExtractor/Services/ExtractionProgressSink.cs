@@ -14,7 +14,23 @@ public sealed class ExtractionProgressSink(ActivityLog log, DispatcherQueue disp
         {
             var entry = log.Add($"{NameOf(videoPath)} — 0%");
             _entries[videoPath] = entry;
-            SetProgress(completedOverall, totalOverall);
+            SetProgress(
+                ExtractionProgress.Fraction(completedOverall, 0, totalOverall), live: false);
+        });
+
+    public void TrackProgress(
+        string videoPath,
+        int completedInFile,
+        int totalInFile,
+        double currentFraction,
+        int completedOverall,
+        int totalOverall) =>
+        Post(() =>
+        {
+            UpdateEntry(videoPath, completedInFile + currentFraction, totalInFile, live: true);
+            SetProgress(
+                ExtractionProgress.Fraction(completedOverall, currentFraction, totalOverall),
+                live: true);
         });
 
     public void TrackFinished(
@@ -25,8 +41,9 @@ public sealed class ExtractionProgressSink(ActivityLog log, DispatcherQueue disp
         int totalOverall) =>
         Post(() =>
         {
-            UpdateEntry(videoPath, completedInFile, totalInFile);
-            SetProgress(completedOverall, totalOverall);
+            UpdateEntry(videoPath, completedInFile, totalInFile, live: false);
+            SetProgress(
+                ExtractionProgress.Fraction(completedOverall, 0, totalOverall), live: false);
         });
 
     public void TrackFailed(
@@ -38,9 +55,10 @@ public sealed class ExtractionProgressSink(ActivityLog log, DispatcherQueue disp
         string error) =>
         Post(() =>
         {
-            UpdateEntry(videoPath, completedInFile, totalInFile);
+            UpdateEntry(videoPath, completedInFile, totalInFile, live: false);
             log.Add(error, isError: true);
-            SetProgress(completedOverall, totalOverall);
+            SetProgress(
+                ExtractionProgress.Fraction(completedOverall, 0, totalOverall), live: false);
         });
 
     public void FileFinished(string videoPath) =>
@@ -64,9 +82,13 @@ public sealed class ExtractionProgressSink(ActivityLog log, DispatcherQueue disp
         return completion.Task;
     }
 
-    private void UpdateEntry(string videoPath, int completedInFile, int totalInFile)
+    private void UpdateEntry(string videoPath, double completed, int total, bool live)
     {
-        var message = $"{NameOf(videoPath)} — {Percent(completedInFile, totalInFile)}";
+        var fraction = total <= 0 ? 0 : Math.Clamp(completed / total, 0, 1);
+        var percent = live
+            ? ExtractionProgress.LivePercent(fraction)
+            : ExtractionProgress.FinishedPercent(completed, total);
+        var message = $"{NameOf(videoPath)} — {percent}%";
         if (_entries.TryGetValue(videoPath, out var entry))
         {
             log.Update(entry, message);
@@ -79,11 +101,8 @@ public sealed class ExtractionProgressSink(ActivityLog log, DispatcherQueue disp
 
     private void Post(Action action) => dispatcher.TryEnqueue(() => action());
 
-    private void SetProgress(int completed, int total) =>
-        log.SetProgress(total == 0 ? 0 : completed * 100.0 / total);
-
-    private static string Percent(int completed, int total) =>
-        $"{(total == 0 ? 0 : completed * 100.0 / total):0}%";
+    private void SetProgress(double fraction, bool live) =>
+        log.SetProgress(live ? Math.Min(fraction * 100.0, 99.0) : fraction * 100.0);
 
     private static string NameOf(string filePath) =>
         Path.GetFileName(filePath) is { Length: > 0 } name ? name : filePath;
