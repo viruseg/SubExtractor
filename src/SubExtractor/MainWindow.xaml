@@ -311,10 +311,29 @@
             </Button>
             <Button x:Name="ExtractAllButton"
                     Grid.Column="1"
-                    Content="Extract All"
+                    Width="132"
+                    Padding="0"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch"
+                    CornerRadius="4"
                     Style="{StaticResource AccentButtonStyle}"
+                    AutomationProperties.Name="Extract all subtitles"
                     IsEnabled="{x:Bind ViewModel.CanExtract, Mode=OneWay}"
-                    Click="ExtractAll_Click" />
+                    Click="ExtractAll_Click">
+                <Grid x:Name="ExtractButtonSurface">
+                    <Border x:Name="ExtractProgressFill"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Stretch"
+                            Visibility="Collapsed"
+                            Background="{ThemeResource SystemFillColorSuccessBrush}"
+                            CornerRadius="4" />
+                    <TextBlock x:Name="ExtractButtonLabel"
+                               Text="Extract All"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                </Grid>
+            </Button>
         </Grid>
 
         <TextBlock x:Name="FileNameMeasurer"
