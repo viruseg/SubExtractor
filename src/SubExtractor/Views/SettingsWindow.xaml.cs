@@ -346,14 +346,10 @@ public sealed partial class SettingsWindow : Window
             return;
         }
 
-        var value = ParseShiftPart(box);
-        if (box == ShiftMinutesBox || box == ShiftSecondsBox)
-        {
-            value = Math.Min(value, 59);
-        }
+        var part = PartOf(box);
 
         _updatingShift = true;
-        box.Text = value.ToString(box.MaxLength == 3 ? "000" : "00");
+        box.Text = TimeShiftText.NormalizePart(part, box.Text);
         _updatingShift = false;
 
         UpdateTimeShift();
@@ -380,14 +376,12 @@ public sealed partial class SettingsWindow : Window
         ShiftSecondsBox.IsEnabled = hasFolder;
         ShiftMillisecondsBox.IsEnabled = hasFolder;
 
-        var shift = _services.TimeShift.Shift;
-        ShiftSignBox.SelectedIndex = shift < TimeSpan.Zero ? 1 : 0;
-
-        var absolute = shift.Duration();
-        ShiftHoursBox.Text = ((long)absolute.TotalHours).ToString("00");
-        ShiftMinutesBox.Text = absolute.Minutes.ToString("00");
-        ShiftSecondsBox.Text = absolute.Seconds.ToString("00");
-        ShiftMillisecondsBox.Text = absolute.Milliseconds.ToString("000");
+        var fields = TimeShiftText.Format(_services.TimeShift.Shift);
+        ShiftSignBox.SelectedIndex = fields.IsNegative ? 1 : 0;
+        ShiftHoursBox.Text = fields.Hours;
+        ShiftMinutesBox.Text = fields.Minutes;
+        ShiftSecondsBox.Text = fields.Seconds;
+        ShiftMillisecondsBox.Text = fields.Milliseconds;
 
         _updatingShift = false;
     }
@@ -399,21 +393,23 @@ public sealed partial class SettingsWindow : Window
             return;
         }
 
-        var sign = ShiftSignBox.SelectedIndex == 1 ? -1 : 1;
-        var shift = new TimeSpan(
-            0,
-            ParseShiftPart(ShiftHoursBox),
-            ParseShiftPart(ShiftMinutesBox),
-            ParseShiftPart(ShiftSecondsBox),
-            ParseShiftPart(ShiftMillisecondsBox));
+        var fields = new TimeShiftFields(
+            ShiftSignBox.SelectedIndex == 1,
+            ShiftHoursBox.Text,
+            ShiftMinutesBox.Text,
+            ShiftSecondsBox.Text,
+            ShiftMillisecondsBox.Text);
 
         _updatingShift = true;
-        _services.TimeShift.SetShift(sign < 0 ? shift.Negate() : shift);
+        _services.TimeShift.SetShift(TimeShiftText.Parse(fields));
         _updatingShift = false;
     }
 
-    private static int ParseShiftPart(TextBox box) =>
-        int.TryParse(box.Text, out var value) ? value : 0;
+    private TimeShiftPart PartOf(TextBox box) =>
+        box == ShiftHoursBox ? TimeShiftPart.Hours
+        : box == ShiftMinutesBox ? TimeShiftPart.Minutes
+        : box == ShiftSecondsBox ? TimeShiftPart.Seconds
+        : TimeShiftPart.Milliseconds;
 
     private sealed class UpdateProgress(SettingsWindow window) : IProgress<FfmpegInstallProgress>
     {
