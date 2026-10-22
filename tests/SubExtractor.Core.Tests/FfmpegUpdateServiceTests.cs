@@ -1,5 +1,3 @@
-using System.IO.Compression;
-using System.Security.Cryptography;
 using SubExtractor.Core.Ffmpeg;
 using SubExtractor.Core.Processing;
 using SubExtractor.Core.Tests.TestHelpers;
@@ -92,6 +90,74 @@ public sealed class FfmpegUpdateServiceTests
     }
 
     [Fact]
+    public async Task CheckForUpdateAsync_returns_the_local_error_before_checking_remote()
+    {
+        using var temp = new TempDirectory();
+        var service = CreateService(temp, "ffmpeg version 9.0.2", remoteFailure: true);
+        var local = new FfmpegLocalVersionResult(
+            null, null, "Couldn't read the local ffmpeg version.");
+
+        var result = await service.CheckForUpdateAsync(local);
+
+        Assert.False(result.UpdateAvailable);
+        Assert.Null(result.LatestDisplay);
+        Assert.Equal("Couldn't read the local ffmpeg version.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task CheckForUpdateAsync_uses_the_local_display_in_the_comparison_error()
+    {
+        using var temp = new TempDirectory();
+        var service = CreateService(temp, "ffmpeg version 9.0.2", remoteVersion: "9.0.3");
+        var local = new FfmpegLocalVersionResult("custom", "ffmpeg version nightly", null);
+
+        var result = await service.CheckForUpdateAsync(local);
+
+        Assert.False(result.UpdateAvailable);
+        Assert.Null(result.LatestDisplay);
+        Assert.Equal(
+            "Couldn't compare ffmpeg versions: local 'custom', server '9.0.3'.",
+            result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task ReadLocalAsync_reports_a_process_exception()
+    {
+        using var temp = new TempDirectory();
+        var service = new FfmpegUpdateService(new FfmpegManager(
+            temp.Path,
+            new ThrowingFfmpegDownloader(),
+            new FakeProcessRunner((_, _, _) =>
+                throw new OperationCanceledException("local boom"))));
+
+        var result = await service.ReadLocalAsync();
+
+        Assert.Null(result.Display);
+        Assert.Equal(
+            "Couldn't read the local ffmpeg version: local boom",
+            result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_warns_when_the_post_install_read_throws()
+    {
+        using var temp = new TempDirectory();
+        var archive = FfmpegTestData.CreateArchive();
+        var service = new FfmpegUpdateService(new FfmpegManager(
+            Path.Combine(temp.Path, "Data"),
+            new FakeFfmpegDownloader("9.0.2", archive, FfmpegTestData.Sha256(archive)),
+            new FakeProcessRunner((_, _, _) =>
+                throw new OperationCanceledException("local boom"))));
+
+        var result = await service.UpdateAsync(null, "9.0.2");
+
+        Assert.Equal("9.0.2", result.Display);
+        Assert.Equal(
+            "Couldn't read the local ffmpeg version after updating: local boom",
+            result.WarningMessage);
+    }
+
+    [Fact]
     public async Task UpdateAsync_returns_the_version_read_after_installing()
     {
         using var temp = new TempDirectory();
@@ -123,7 +189,7 @@ public sealed class FfmpegUpdateServiceTests
         using var temp = new TempDirectory();
         var service = new FfmpegUpdateService(new FfmpegManager(
             Path.Combine(temp.Path, "Data"),
-            new ThrowingDownloader(),
+            new ThrowingFfmpegDownloader(),
             new FakeProcessRunner(new ProcessResult(0, "", ""))));
 
         await Assert.ThrowsAsync<HttpRequestException>(
@@ -137,63 +203,14 @@ public sealed class FfmpegUpdateServiceTests
         string? remoteVersion = "9.0.2",
         bool remoteFailure = false)
     {
-        var archive = CreateArchive();
+        var archive = FfmpegTestData.CreateArchive();
         var downloader = remoteFailure
-            ? (IFfmpegDownloader)new ThrowingDownloader()
-            : new VersionDownloader(remoteVersion!, archive, Sha256(archive));
+            ? (IFfmpegDownloader)new ThrowingFfmpegDownloader()
+            : new FakeFfmpegDownloader(
+                remoteVersion!, archive, FfmpegTestData.Sha256(archive));
         var runner = new FakeProcessRunner(new ProcessResult(exitCode, localOutput ?? "", ""));
         var manager = new FfmpegManager(Path.Combine(temp.Path, "Data"), downloader, runner);
         return new FfmpegUpdateService(manager);
     }
 
-    private static byte[] CreateArchive()
-    {
-        using var stream = new MemoryStream();
-        using (var zip = new ZipArchive(stream, ZipArchiveMode.Create, true))
-        {
-            WriteEntry(zip, "ffmpeg-9.0.2/bin/ffmpeg.exe", "FFMPEG");
-            WriteEntry(zip, "ffmpeg-9.0.2/bin/ffprobe.exe", "FFPROBE");
-        }
-
-        return stream.ToArray();
-    }
-
-    private static void WriteEntry(ZipArchive zip, string name, string content)
-    {
-        using var writer = new StreamWriter(zip.CreateEntry(name).Open());
-        writer.Write(content);
-    }
-
-    private static string Sha256(byte[] archive) =>
-        Convert.ToHexString(SHA256.HashData(archive)).ToLowerInvariant();
-
-    private sealed class VersionDownloader(string version, byte[] archive, string checksum)
-        : IFfmpegDownloader
-    {
-        public Task DownloadAsync(
-            Uri uri,
-            Stream destination,
-            IProgress<DownloadProgress>? progress,
-            CancellationToken ct)
-        {
-            destination.Write(archive);
-            progress?.Report(new DownloadProgress(archive.Length, archive.Length));
-            return Task.CompletedTask;
-        }
-
-        public Task<string> GetStringAsync(Uri uri, CancellationToken ct) =>
-            Task.FromResult(uri.AbsolutePath.EndsWith(".sha256") ? checksum : version);
-    }
-
-    private sealed class ThrowingDownloader : IFfmpegDownloader
-    {
-        public Task DownloadAsync(
-            Uri uri,
-            Stream destination,
-            IProgress<DownloadProgress>? progress,
-            CancellationToken ct) => throw new HttpRequestException("network down");
-
-        public Task<string> GetStringAsync(Uri uri, CancellationToken ct) =>
-            throw new HttpRequestException("network down");
-    }
 }

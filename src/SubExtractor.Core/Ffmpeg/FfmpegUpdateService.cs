@@ -42,6 +42,11 @@ public sealed class FfmpegUpdateService(FfmpegManager manager)
     public async Task<FfmpegUpdateCheckResult> CheckForUpdateAsync(
         FfmpegLocalVersionResult local)
     {
+        if (local.ErrorMessage is { } localError)
+        {
+            return new FfmpegUpdateCheckResult(false, null, localError);
+        }
+
         string remoteVersion;
 
         try
@@ -60,10 +65,11 @@ public sealed class FfmpegUpdateService(FfmpegManager manager)
         var remoteNumeric = VersionComparison.ParseNumeric(remoteVersion);
         if (localVersion.Numeric is null || remoteNumeric is null)
         {
+            var localDisplay = local.Display ?? localVersion.Display;
             return new FfmpegUpdateCheckResult(
                 false,
                 null,
-                $"Couldn't compare ffmpeg versions: local '{localVersion.Display}', " +
+                $"Couldn't compare ffmpeg versions: local '{localDisplay}', " +
                 $"server '{remoteVersion}'.");
         }
 

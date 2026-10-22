@@ -1,5 +1,3 @@
-using System.IO.Compression;
-using System.Security.Cryptography;
 using SubExtractor.Core.Ffmpeg;
 using SubExtractor.Core.Processing;
 using SubExtractor.Core.Tests.TestHelpers;
@@ -12,11 +10,11 @@ public sealed class FfmpegManagerTests
     public async Task Install_extracts_ffmpeg_and_ffprobe_and_cleans_staging()
     {
         using var temp = new TempDirectory();
-        var archive = CreateArchive();
-        var checksum = Convert.ToHexString(SHA256.HashData(archive)).ToLowerInvariant();
+        var archive = FfmpegTestData.CreateArchive();
+        var checksum = FfmpegTestData.Sha256(archive);
         var manager = new FfmpegManager(
             Path.Combine(temp.Path, "Data"),
-            new FakeDownloader(archive, checksum),
+            new FakeFfmpegDownloader("9.0.2", archive, checksum),
             new FakeProcessRunner(new ProcessResult(0, "ffmpeg version 9.0.2", "")));
         var stages = new List<FfmpegInstallStage>();
 
@@ -43,10 +41,10 @@ public sealed class FfmpegManagerTests
     public async Task Install_reports_download_percent()
     {
         using var temp = new TempDirectory();
-        var archive = CreateArchive();
+        var archive = FfmpegTestData.CreateArchive();
         var manager = new FfmpegManager(
             Path.Combine(temp.Path, "Data"),
-            new FakeDownloader(archive, Sha256(archive)),
+            new FakeFfmpegDownloader("9.0.2", archive, FfmpegTestData.Sha256(archive)),
             new FakeProcessRunner(new ProcessResult(0, "", "")));
         var reports = new List<FfmpegInstallProgress>();
 
@@ -60,8 +58,8 @@ public sealed class FfmpegManagerTests
     public async Task Install_uses_the_live_archive_and_sidecar_uris()
     {
         using var temp = new TempDirectory();
-        var archive = CreateArchive();
-        var downloader = new RecordingDownloader(archive, Sha256(archive));
+        var archive = FfmpegTestData.CreateArchive();
+        var downloader = new RecordingDownloader(archive, FfmpegTestData.Sha256(archive));
         var manager = new FfmpegManager(Path.Combine(temp.Path, "Data"), downloader,
             new FakeProcessRunner(new ProcessResult(0, "", "")));
 
@@ -84,8 +82,8 @@ public sealed class FfmpegManagerTests
         Directory.CreateDirectory(ffmpegDir);
         File.WriteAllText(Path.Combine(ffmpegDir, "ffmpeg.exe"), "OLD");
         File.WriteAllText(Path.Combine(ffmpegDir, "ffprobe.exe"), "OLD");
-        var archive = CreateArchive();
-        var manager = new FfmpegManager(data, new FakeDownloader(archive, Sha256(archive)),
+        var archive = FfmpegTestData.CreateArchive();
+        var manager = new FfmpegManager(data, new FakeFfmpegDownloader("9.0.2", archive, FfmpegTestData.Sha256(archive)),
             new FakeProcessRunner(new ProcessResult(0, "", "")));
 
         await manager.InstallAsync(null, CancellationToken.None);
@@ -106,8 +104,8 @@ public sealed class FfmpegManagerTests
         var ffprobePath = Path.Combine(ffmpegDir, "ffprobe.exe");
         File.WriteAllText(ffmpegPath, "OLD-FFMPEG");
         File.WriteAllText(ffprobePath, "OLD-FFPROBE");
-        var archive = CreateArchive();
-        var manager = new FfmpegManager(data, new FakeDownloader(archive, Sha256(archive)),
+        var archive = FfmpegTestData.CreateArchive();
+        var manager = new FfmpegManager(data, new FakeFfmpegDownloader("9.0.2", archive, FfmpegTestData.Sha256(archive)),
             new FakeProcessRunner(new ProcessResult(0, "", "")));
 
         using (new FileStream(ffprobePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
@@ -135,7 +133,7 @@ public sealed class FfmpegManagerTests
         var ffmpegDir = Path.Combine(data, "ffmpeg");
         Directory.CreateDirectory(ffmpegDir);
         File.WriteAllText(Path.Combine(ffmpegDir, "ffmpeg.exe"), "OLD");
-        var manager = new FfmpegManager(data, new FakeDownloader(CreateArchive(), new string('0', 64)),
+        var manager = new FfmpegManager(data, new FakeFfmpegDownloader("9.0.2", FfmpegTestData.CreateArchive(), new string('0', 64)),
             new FakeProcessRunner(new ProcessResult(0, "", "")));
 
         await Assert.ThrowsAsync<InvalidOperationException>(
@@ -153,7 +151,7 @@ public sealed class FfmpegManagerTests
         var ffmpegDir = Path.Combine(data, "ffmpeg");
         Directory.CreateDirectory(ffmpegDir);
         File.WriteAllText(Path.Combine(ffmpegDir, "ffmpeg.exe"), "OLD");
-        var manager = new FfmpegManager(data, new FakeDownloader(CreateArchive(), "not-a-checksum"),
+        var manager = new FfmpegManager(data, new FakeFfmpegDownloader("9.0.2", FfmpegTestData.CreateArchive(), "not-a-checksum"),
             new FakeProcessRunner(new ProcessResult(0, "", "")));
 
         await Assert.ThrowsAsync<InvalidOperationException>(
@@ -171,7 +169,7 @@ public sealed class FfmpegManagerTests
         var ffmpegDir = Path.Combine(data, "ffmpeg");
         Directory.CreateDirectory(ffmpegDir);
         File.WriteAllText(Path.Combine(ffmpegDir, "ffmpeg.exe"), "OLD");
-        var manager = new FfmpegManager(data, new ThrowingDownloader(),
+        var manager = new FfmpegManager(data, new ThrowingFfmpegDownloader(),
             new FakeProcessRunner(new ProcessResult(0, "", "")));
 
         await Assert.ThrowsAsync<HttpRequestException>(
@@ -208,8 +206,8 @@ public sealed class FfmpegManagerTests
         var ffmpegDir = Path.Combine(data, "ffmpeg");
         Directory.CreateDirectory(ffmpegDir);
         File.WriteAllText(Path.Combine(ffmpegDir, "ffmpeg.exe"), "OLD");
-        var archive = CreateArchiveWithOnlyFfmpeg();
-        var manager = new FfmpegManager(data, new FakeDownloader(archive, Sha256(archive)),
+        var archive = FfmpegTestData.CreateArchiveWithOnlyFfmpeg();
+        var manager = new FfmpegManager(data, new FakeFfmpegDownloader("9.0.2", archive, FfmpegTestData.Sha256(archive)),
             new FakeProcessRunner(new ProcessResult(0, "", "")));
 
         await Assert.ThrowsAsync<InvalidOperationException>(
@@ -232,7 +230,7 @@ public sealed class FfmpegManagerTests
                 : "ffmpeg version 9.0.2";
             return new ProcessResult(0, output, "");
         });
-        var manager = new FfmpegManager(temp.Path, new FakeDownloader([], ""), runner);
+        var manager = new FfmpegManager(temp.Path, new FakeFfmpegDownloader("9.0.2", [], ""), runner);
 
         Assert.Equal("ffmpeg version 9.0.2", await manager.ReadLocalVersionAsync(CancellationToken.None));
         Assert.Equal("ffprobe version 9.0.2", await manager.ReadLocalProbeVersionAsync(CancellationToken.None));
@@ -243,7 +241,7 @@ public sealed class FfmpegManagerTests
     public async Task ReadLocalVersionAsync_returns_null_when_process_fails()
     {
         using var temp = new TempDirectory();
-        var manager = new FfmpegManager(temp.Path, new FakeDownloader([], ""),
+        var manager = new FfmpegManager(temp.Path, new FakeFfmpegDownloader("9.0.2", [], ""),
             new FakeProcessRunner(new ProcessResult(1, "ffmpeg version 9.0.2", "boom")));
 
         Assert.Null(await manager.ReadLocalVersionAsync(CancellationToken.None));
@@ -257,49 +255,6 @@ public sealed class FfmpegManagerTests
             new FakeProcessRunner(new ProcessResult(0, "", "")));
 
         Assert.Equal("9.0.3", await manager.GetLatestVersionAsync(CancellationToken.None));
-    }
-
-    private static byte[] CreateArchive()
-    {
-        using var ms = new MemoryStream();
-        using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, true))
-        {
-            WriteEntry(zip, "ffmpeg-9.0.2/bin/ffmpeg.exe", "FFMPEG");
-            WriteEntry(zip, "ffmpeg-9.0.2/bin/ffprobe.exe", "FFPROBE");
-        }
-        return ms.ToArray();
-    }
-
-    private static byte[] CreateArchiveWithOnlyFfmpeg()
-    {
-        using var ms = new MemoryStream();
-        using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, true))
-        {
-            WriteEntry(zip, "ffmpeg-9.0.2/bin/ffmpeg.exe", "FFMPEG");
-        }
-        return ms.ToArray();
-    }
-
-    private static void WriteEntry(ZipArchive zip, string name, string content)
-    {
-        using var writer = new StreamWriter(zip.CreateEntry(name).Open());
-        writer.Write(content);
-    }
-
-    private static string Sha256(byte[] archive)
-        => Convert.ToHexString(SHA256.HashData(archive)).ToLowerInvariant();
-
-    private sealed class FakeDownloader(byte[] archive, string checksum) : IFfmpegDownloader
-    {
-        public Task DownloadAsync(Uri uri, Stream destination, IProgress<DownloadProgress>? progress, CancellationToken ct)
-        {
-            destination.Write(archive);
-            progress?.Report(new DownloadProgress(archive.Length, archive.Length));
-            return Task.CompletedTask;
-        }
-
-        public Task<string> GetStringAsync(Uri uri, CancellationToken ct)
-            => Task.FromResult(uri.AbsolutePath.EndsWith(".sha256") ? checksum : "9.0.2");
     }
 
     private sealed class RecordingDownloader(byte[] archive, string checksum) : IFfmpegDownloader
@@ -319,15 +274,6 @@ public sealed class FfmpegManagerTests
             RequestedUris.Add(uri);
             return Task.FromResult(uri.AbsolutePath.EndsWith(".sha256") ? checksum : "9.0.2");
         }
-    }
-
-    private sealed class ThrowingDownloader : IFfmpegDownloader
-    {
-        public Task DownloadAsync(Uri uri, Stream destination, IProgress<DownloadProgress>? progress, CancellationToken ct)
-            => throw new HttpRequestException("network down");
-
-        public Task<string> GetStringAsync(Uri uri, CancellationToken ct)
-            => throw new HttpRequestException("network down");
     }
 
     private sealed class CancellingDownloader(CancellationTokenSource source) : IFfmpegDownloader
