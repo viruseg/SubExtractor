@@ -1,4 +1,3 @@
-using System.Reflection.PortableExecutable;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -9,8 +8,6 @@ namespace SubExtractor.Services;
 
 public sealed class FfmpegBootstrapper
 {
-    private static readonly TimeSpan VersionCheckTimeout = TimeSpan.FromSeconds(10);
-
     private readonly FfmpegManager _manager;
     private readonly AppBusyState _busy;
     private readonly OperationCoordinator _operations;
@@ -32,7 +29,7 @@ public sealed class FfmpegBootstrapper
     {
         using var busy = _busy.Begin();
 
-        if (await IsUsableAsync())
+        if (await FfmpegHealthCheck.IsUsableAsync(_manager))
         {
             return true;
         }
@@ -92,48 +89,6 @@ public sealed class FfmpegBootstrapper
             _log.Add("FFmpeg is ready.");
             _log.EndOperation();
             return true;
-        }
-    }
-
-    private async Task<bool> IsUsableAsync()
-    {
-        if (!_manager.IsInstalled)
-        {
-            return false;
-        }
-
-        if (!IsPortableExecutable(_manager.FfmpegPath) || !IsPortableExecutable(_manager.FfprobePath))
-        {
-            return false;
-        }
-
-        using var timeout = new CancellationTokenSource(VersionCheckTimeout);
-
-        try
-        {
-            var ffmpeg = _manager.ReadLocalVersionAsync(timeout.Token);
-            var ffprobe = _manager.ReadLocalProbeVersionAsync(timeout.Token);
-            var versions = await Task.WhenAll(ffmpeg, ffprobe);
-            return versions[0] is not null && versions[1] is not null;
-        }
-        catch (OperationCanceledException)
-        {
-            return false;
-        }
-    }
-
-    private static bool IsPortableExecutable(string path)
-    {
-        try
-        {
-            using var stream = File.OpenRead(path);
-            using var reader = new PEReader(stream);
-            return reader.PEHeaders.PEHeader is not null
-                && reader.PEHeaders.CoffHeader.Characteristics.HasFlag(Characteristics.ExecutableImage);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or BadImageFormatException)
-        {
-            return false;
         }
     }
 
