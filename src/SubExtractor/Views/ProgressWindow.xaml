@@ -63,12 +63,12 @@
             </ListView.ItemTemplate>
         </ListView>
 
-        <Button x:Name="CancelButton"
+        <Button x:Name="CloseButton"
                 Grid.Row="2"
                 Margin="24,12,24,20"
                 MinWidth="96"
                 HorizontalAlignment="Right"
-                Content="Cancel"
-                Click="CancelButton_Click" />
+                Content="Close"
+                Click="CloseButton_Click" />
     </Grid>
 </Window>

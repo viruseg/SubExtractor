@@ -57,17 +57,6 @@ public sealed partial class ProgressWindow : Window
             OverallProgress.IsIndeterminate = true;
             PercentageText.Text = string.Empty;
         }
-
-        if (_log.IsRunning)
-        {
-            CancelButton.Content = _log.IsCancelRequested ? "Cancelling..." : "Cancel";
-            CancelButton.IsEnabled = !_log.IsCancelRequested;
-        }
-        else
-        {
-            CancelButton.Content = "Close";
-            CancelButton.IsEnabled = true;
-        }
     }
 
     private void ScrollToLast()
@@ -84,16 +73,7 @@ public sealed partial class ProgressWindow : Window
         _log.Entries.CollectionChanged -= Entries_CollectionChanged;
     }
 
-    private void CancelButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_log.IsRunning)
-        {
-            _log.RequestCancel();
-            return;
-        }
-
-        Close();
-    }
+    private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 }
 
 public sealed class LogForegroundConverter : IValueConverter
