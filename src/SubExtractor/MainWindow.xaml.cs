@@ -645,12 +645,15 @@ public sealed partial class MainWindow : Window
                             log.Add(message, isError: true);
                         }
 
-                        foreach (var message in ExtractionReport.SrtOnlySkipMessages(
-                                     overwrite.ExtractablePlans,
-                                     timeShift != TimeSpan.Zero,
-                                     textRemovalRules.Count > 0))
+                        if (timeShift != TimeSpan.Zero || textRemovalRules.Count > 0)
                         {
-                            log.Add(message);
+                            foreach (var message in ExtractionReport.SrtOnlySkipMessages(
+                                         overwrite.ExtractablePlans,
+                                         timeShift != TimeSpan.Zero,
+                                         textRemovalRules.Count > 0))
+                            {
+                                log.Add(message);
+                            }
                         }
 
                         summary = await _services.Extractor.ExtractAsync(
