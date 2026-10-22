@@ -6,12 +6,6 @@ namespace SubExtractor.Core.Ffmpeg;
 
 public sealed class FfmpegManager
 {
-    private const string DownloadingStage = "Downloading";
-    private const string VerifyingStage = "Verifying";
-    private const string ExtractingStage = "Extracting";
-    private const string InstallingStage = "Installing";
-    private const string DoneStage = "Done";
-
     private static readonly Uri ReleaseVersionUri =
         new("https://www.gyan.dev/ffmpeg/builds/release-version");
     private static readonly Uri ArchiveUri =
@@ -64,7 +58,7 @@ public sealed class FfmpegManager
 
         try
         {
-            progress?.Report(new FfmpegInstallProgress(DownloadingStage, null));
+            progress?.Report(new FfmpegInstallProgress(FfmpegInstallStage.Downloading, null));
 
             IProgress<DownloadProgress>? downloadProgress = progress is null
                 ? null
@@ -84,7 +78,7 @@ public sealed class FfmpegManager
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            progress?.Report(new FfmpegInstallProgress(VerifyingStage, null));
+            progress?.Report(new FfmpegInstallProgress(FfmpegInstallStage.Verifying, null));
 
             var expectedChecksum = ChecksumParser.Parse(
                     await _downloader.GetStringAsync(ChecksumUri, cancellationToken).ConfigureAwait(false))
@@ -98,19 +92,19 @@ public sealed class FfmpegManager
                     $"The downloaded ffmpeg archive has SHA-256 {actualChecksum}, expected {expectedChecksum}.");
             }
 
-            progress?.Report(new FfmpegInstallProgress(ExtractingStage, null));
+            progress?.Report(new FfmpegInstallProgress(FfmpegInstallStage.Extracting, null));
             ZipFile.ExtractToDirectory(archivePath, stagingPath);
 
             var stagedFfmpeg = FindSingleExecutable(stagingPath, "ffmpeg.exe");
             var stagedFfprobe = FindSingleExecutable(stagingPath, "ffprobe.exe");
 
             cancellationToken.ThrowIfCancellationRequested();
-            progress?.Report(new FfmpegInstallProgress(InstallingStage, null));
+            progress?.Report(new FfmpegInstallProgress(FfmpegInstallStage.Installing, null));
             Directory.CreateDirectory(_ffmpegDirectory);
 
             ReplaceExecutables(stagedFfmpeg, stagedFfprobe, pendingTargets);
 
-            progress?.Report(new FfmpegInstallProgress(DoneStage, null));
+            progress?.Report(new FfmpegInstallProgress(FfmpegInstallStage.Done, null));
         }
         finally
         {
@@ -268,6 +262,6 @@ public sealed class FfmpegManager
         : IProgress<DownloadProgress>
     {
         public void Report(DownloadProgress value)
-            => target.Report(new FfmpegInstallProgress(DownloadingStage, value.Percent));
+            => target.Report(new FfmpegInstallProgress(FfmpegInstallStage.Downloading, value.Percent));
     }
 }

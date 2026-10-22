@@ -18,7 +18,7 @@ public sealed class FfmpegManagerTests
             Path.Combine(temp.Path, "Data"),
             new FakeDownloader(archive, checksum),
             new FakeProcessRunner(new ProcessResult(0, "ffmpeg version 9.0.2", "")));
-        var stages = new List<string>();
+        var stages = new List<FfmpegInstallStage>();
 
         await manager.InstallAsync(
             new SyncProgress<FfmpegInstallProgress>(p => stages.Add(p.Stage)),
@@ -28,7 +28,15 @@ public sealed class FfmpegManagerTests
         Assert.Equal("FFMPEG", File.ReadAllText(manager.FfmpegPath));
         Assert.Equal("FFPROBE", File.ReadAllText(manager.FfprobePath));
         Assert.Empty(Directory.GetFiles(Path.Combine(temp.Path, "Data"), "*.tmp", SearchOption.AllDirectories));
-        Assert.Equal(["Downloading", "Verifying", "Extracting", "Installing", "Done"], stages.Distinct());
+        Assert.Equal(
+            [
+                FfmpegInstallStage.Downloading,
+                FfmpegInstallStage.Verifying,
+                FfmpegInstallStage.Extracting,
+                FfmpegInstallStage.Installing,
+                FfmpegInstallStage.Done,
+            ],
+            stages.Distinct());
     }
 
     [Fact]
@@ -44,8 +52,8 @@ public sealed class FfmpegManagerTests
 
         await manager.InstallAsync(new SyncProgress<FfmpegInstallProgress>(reports.Add), CancellationToken.None);
 
-        Assert.Contains(new FfmpegInstallProgress("Downloading", 100), reports);
-        Assert.Equal(new FfmpegInstallProgress("Downloading", null), reports[0]);
+        Assert.Contains(new FfmpegInstallProgress(FfmpegInstallStage.Downloading, 100), reports);
+        Assert.Equal(new FfmpegInstallProgress(FfmpegInstallStage.Downloading, null), reports[0]);
     }
 
     [Fact]

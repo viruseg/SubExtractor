@@ -1,3 +1,12 @@
 namespace SubExtractor.Core.Ffmpeg;
 
-public sealed record FfmpegInstallProgress(string Stage, double? Percent);
+public enum FfmpegInstallStage
+{
+    Downloading,
+    Verifying,
+    Extracting,
+    Installing,
+    Done,
+}
+
+public sealed record FfmpegInstallProgress(FfmpegInstallStage Stage, double? Percent);

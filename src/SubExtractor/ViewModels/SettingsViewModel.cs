@@ -80,7 +80,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         switch (progress.Stage)
         {
-            case "Downloading":
+            case FfmpegInstallStage.Downloading:
                 if (progress.Percent is { } percent)
                 {
                     var value = Math.Clamp(percent, 0, 100);
@@ -97,25 +97,25 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 UpdateProgressVisibility = Visibility.Visible;
                 break;
 
-            case "Verifying":
+            case FfmpegInstallStage.Verifying:
                 UpdateButtonText = "Verifying...";
                 UpdateProgressVisibility = Visibility.Visible;
                 UpdateProgressIndeterminate = true;
                 break;
 
-            case "Extracting":
+            case FfmpegInstallStage.Extracting:
                 UpdateButtonText = "Extracting...";
                 UpdateProgressVisibility = Visibility.Visible;
                 UpdateProgressIndeterminate = true;
                 break;
 
-            case "Installing":
+            case FfmpegInstallStage.Installing:
                 UpdateButtonText = "Installing...";
                 UpdateProgressVisibility = Visibility.Visible;
                 UpdateProgressIndeterminate = true;
                 break;
 
-            case "Done":
+            case FfmpegInstallStage.Done:
                 UpdateProgressValue = 100;
                 UpdateProgressIndeterminate = false;
                 UpdateProgressVisibility = Visibility.Visible;

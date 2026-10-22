@@ -9,12 +9,6 @@ namespace SubExtractor.Services;
 
 public sealed class FfmpegBootstrapper
 {
-    private const string DownloadingStage = "Downloading";
-    private const string VerifyingStage = "Verifying";
-    private const string ExtractingStage = "Extracting";
-    private const string InstallingStage = "Installing";
-    private const string DoneStage = "Done";
-
     private static readonly TimeSpan VersionCheckTimeout = TimeSpan.FromSeconds(10);
 
     private readonly FfmpegManager _manager;
@@ -195,7 +189,7 @@ public sealed class FfmpegBootstrapper
         {
             switch (value.Stage)
             {
-                case DownloadingStage:
+                case FfmpegInstallStage.Downloading:
                     var message = value.Percent is { } percent
                         ? $"Downloading ffmpeg — {percent:0}%"
                         : "Downloading ffmpeg";
@@ -212,22 +206,22 @@ public sealed class FfmpegBootstrapper
                     log.SetProgress(value.Percent);
                     break;
 
-                case VerifyingStage:
+                case FfmpegInstallStage.Verifying:
                     log.Add("Verifying the download");
                     log.SetProgress(null);
                     break;
 
-                case ExtractingStage:
+                case FfmpegInstallStage.Extracting:
                     log.Add("Extracting ffmpeg");
                     log.SetProgress(null);
                     break;
 
-                case InstallingStage:
+                case FfmpegInstallStage.Installing:
                     log.Add("Installing ffmpeg");
                     log.SetProgress(null);
                     break;
 
-                case DoneStage:
+                case FfmpegInstallStage.Done:
                     log.SetProgress(100);
                     break;
             }
